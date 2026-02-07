@@ -1,8 +1,9 @@
-import React, { useRef, useState, useEffect, useMemo, memo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useRef, useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle, FileText, Zap, Download, Sparkles, Shield, Clock } from 'lucide-react';
 import { ResumeRenderer } from '@/app/components/templates/ResumeRenderer';
 import { initialResumeData } from '@/app/data/initialData';
+import { useResumeStore } from '@/app/store/useResumeStore';
 import { TemplateId, ResumeData } from '@/app/types/resume';
 import { ThemeColor } from '@/app/types/theme';
 
@@ -69,6 +70,15 @@ const LandingTemplatePreview: React.FC<{ templateId: TemplateId; themeColor: The
 LandingTemplatePreview.displayName = 'LandingTemplatePreview';
 
 export const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const addResumeFromPreset = useResumeStore(state => state.addResumeFromPreset);
+
+  // 点击模板卡片：用该模板创建简历并直接进入编辑器
+  const handleUseTemplate = useCallback((templateId: TemplateId) => {
+    addResumeFromPreset(templateId);
+    navigate('/editor');
+  }, [addResumeFromPreset, navigate]);
+
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
       {/* Navbar */}
@@ -85,7 +95,7 @@ export const LandingPage: React.FC = () => {
               我的简历
             </Link>
             <Link 
-              to="/editor" 
+              to="/dashboard" 
               className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2 rounded-full font-medium transition-colors"
             >
               开始制作
@@ -119,7 +129,7 @@ export const LandingPage: React.FC = () => {
             </p>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Link 
-                to="/editor" 
+                to="/dashboard" 
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
               >
                 免费开始制作 <ArrowRight size={20} />
@@ -213,7 +223,7 @@ export const LandingPage: React.FC = () => {
               <p className="text-gray-400">选择适合你行业的设计风格</p>
             </div>
             <Link 
-              to="/editor?showTemplates=true" 
+              to="/dashboard" 
               className="hidden md:flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
             >
               查看所有模板 <ArrowRight size={16} />
@@ -226,10 +236,10 @@ export const LandingPage: React.FC = () => {
               { name: '商务浅蓝', tag: '校招/商务', color: 'bg-blue-600', desc: '适合应届生、商务岗位', templateId: 'business' as TemplateId, themeColor: 'business-blue' as ThemeColor },
               { name: '活力红', tag: '创意/运营', color: 'bg-red-500', desc: '适合运营、市场岗位', templateId: 'vibrant' as TemplateId, themeColor: 'vibrant-red' as ThemeColor },
             ]).map((t, i) => (
-              <Link 
+              <button 
                 key={i} 
-                to="/editor" 
-                className="group block relative overflow-hidden rounded-xl bg-gray-800 border border-gray-700 hover:border-gray-600 transition-all"
+                onClick={() => handleUseTemplate(t.templateId)}
+                className="group block relative overflow-hidden rounded-xl bg-gray-800 border border-gray-700 hover:border-gray-600 transition-all text-left"
               >
                 {/* 真实模板预览 */}
                 <LandingTemplatePreview templateId={t.templateId} themeColor={t.themeColor} />
@@ -240,13 +250,13 @@ export const LandingPage: React.FC = () => {
                     {t.tag}
                   </span>
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
           
           <div className="text-center mt-12 md:hidden">
             <Link 
-              to="/editor?showTemplates=true" 
+              to="/dashboard" 
               className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
             >
               查看所有模板 <ArrowRight size={16} />
@@ -261,7 +271,7 @@ export const LandingPage: React.FC = () => {
           <h2 className="text-3xl md:text-4xl font-bold mb-4">准备好了吗？</h2>
           <p className="text-blue-100 mb-8 text-lg">现在就开始制作你的专业简历，完全免费！</p>
           <Link 
-            to="/editor" 
+            to="/dashboard" 
             className="inline-flex items-center gap-2 bg-white text-blue-600 px-8 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105"
           >
             立即开始 <ArrowRight size={20} />

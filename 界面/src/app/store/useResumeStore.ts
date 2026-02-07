@@ -108,19 +108,15 @@ export const useResumeStore = create<ResumeState>()(
           // 清理对应的历史管理器
           historyManagers.delete(id);
           
-          // If active resume is deleted, switch to another one or create new
+          // 如果删除的是当前活动简历，切换到另一份
           if (state.activeResumeId === id) {
             const remainingIds = Object.keys(state.resumes);
             if (remainingIds.length > 0) {
               state.activeResumeId = remainingIds[0];
             } else {
-              // Create new if all deleted - 使用深拷贝
-              const freshId = uuidv4();
-              const fresh = safeDeepClone(initialResumeData);
-              fresh.id = freshId;
-              fresh.lastModified = Date.now();
-              state.resumes[freshId] = fresh;
-              state.activeResumeId = freshId;
+              // 所有简历都被删除了，清空 activeResumeId
+              // 仪表盘会显示"还没有简历"的空状态
+              state.activeResumeId = '';
             }
           }
         });

@@ -1,5 +1,8 @@
-/* Google Fonts 引入 - 思源黑体(Noto Sans SC)、思源宋体(Noto Serif SC) */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@400;500;600;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+/*
+ * Google Fonts 引入已移至 index.html 中以非阻塞方式加载。
+ * 字体加载失败（如在国内无法访问 Google）不会影响页面渲染，
+ * 系统会自动使用 PingFang SC / Microsoft YaHei 等本地字体作为回退。
+ */
 
 /* 字体族定义 */
 :root {

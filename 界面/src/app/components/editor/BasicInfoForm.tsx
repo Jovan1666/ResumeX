@@ -66,10 +66,9 @@ export const BasicInfoForm = memo(() => {
         <div className="p-4 space-y-5 animate-in slide-in-from-top-2 duration-200">
           {/* Avatar Upload */}
           <div className="flex items-start gap-4">
-            <div className="relative group cursor-pointer w-20 h-20 flex-shrink-0">
+            <div className="relative group cursor-pointer w-20 h-[112px] flex-shrink-0">
               <div className={cn(
-                "w-full h-full overflow-hidden bg-gray-50 border-2 border-dashed border-gray-300 group-hover:border-blue-400 flex flex-col items-center justify-center transition-colors",
-                profile.avatar ? "rounded-lg" : "rounded-full"
+                "w-full h-full overflow-hidden bg-gray-50 border-2 border-dashed border-gray-300 group-hover:border-blue-400 flex flex-col items-center justify-center transition-colors rounded-lg"
               )}>
                 {profile.avatar ? (
                   <ImageWithFallback src={profile.avatar} alt="Profile" className="w-full h-full object-cover" />
@@ -91,7 +90,7 @@ export const BasicInfoForm = memo(() => {
                 />
               )}
               {profile.avatar && (
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg z-10">
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg z-10 flex-col">
                   <label className="cursor-pointer text-white hover:text-blue-200 p-1" title="更换照片" aria-label="更换照片">
                     <Upload size={14} />
                     <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
@@ -198,7 +197,7 @@ export const BasicInfoForm = memo(() => {
           setTempImage('');
         }}
         onCrop={handleCrop}
-        aspectRatio="1:1"
+        aspectRatio="5:7"
       />
     </div>
   );
