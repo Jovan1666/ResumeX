@@ -25,8 +25,17 @@ const ResumeCardPreview: React.FC<{ data: ResumeData }> = memo(({ data }) => {
       }
     };
     updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    // 使用 RAF 节流 resize，避免 N 个卡片 × 60fps 的 setState 导致卡顿
+    let rafId: number;
+    const handleResize = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateScale);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return (
@@ -48,7 +57,13 @@ const ResumeCardPreview: React.FC<{ data: ResumeData }> = memo(({ data }) => {
 ResumeCardPreview.displayName = 'ResumeCardPreview';
 
 export const Dashboard: React.FC = () => {
-  const { resumes, addResume, addResumeFromPreset, deleteResume, duplicateResume, setActiveResume } = useResumeStore();
+  // 细粒度选择器：仅订阅 resumes 数据和需要的 action
+  const resumes = useResumeStore(state => state.resumes);
+  const addResume = useResumeStore(state => state.addResume);
+  const addResumeFromPreset = useResumeStore(state => state.addResumeFromPreset);
+  const deleteResume = useResumeStore(state => state.deleteResume);
+  const duplicateResume = useResumeStore(state => state.duplicateResume);
+  const setActiveResume = useResumeStore(state => state.setActiveResume);
   const navigate = useNavigate();
   const { showToast } = useToast();
   const resumeList = Object.values(resumes).sort((a, b) => b.lastModified - a.lastModified);

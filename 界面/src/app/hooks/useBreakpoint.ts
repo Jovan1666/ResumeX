@@ -14,12 +14,20 @@ export function useBreakpoint() {
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
   useEffect(() => {
+    // 使用 requestAnimationFrame 节流 resize 事件，避免高频 setState 导致卡顿
+    let rafId: number;
     const handleResize = () => {
-      setWidth(window.innerWidth);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setWidth(window.innerWidth);
+      });
     };
 
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   const isMobile = width < breakpoints.md;
@@ -64,8 +72,12 @@ export function useOrientation() {
   );
 
   useEffect(() => {
+    let rafId: number;
     const handleOrientationChange = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setIsLandscape(window.innerWidth > window.innerHeight);
+      });
     };
 
     window.addEventListener('resize', handleOrientationChange);
@@ -74,6 +86,7 @@ export function useOrientation() {
     return () => {
       window.removeEventListener('resize', handleOrientationChange);
       window.removeEventListener('orientationchange', handleOrientationChange);
+      cancelAnimationFrame(rafId);
     };
   }, []);
 

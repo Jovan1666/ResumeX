@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useId } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCw, Check, Crop } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/app/lib/utils';
@@ -25,6 +25,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
   const dragStartRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const maskId = useId();
 
   const getAspectValue = () => {
     switch (aspectRatio) {
@@ -34,13 +35,30 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     }
   };
 
+  // 切换图片时重置缩放和位移状态
+  useEffect(() => {
+    if (image) {
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    }
+  }, [image]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
   };
 
-  // 将 mousemove/mouseup 绑定到 document 上，避免鼠标移出裁切区域后拖拽失效
+  // 触摸事件支持（移动端）
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    setIsDragging(true);
+    dragStartRef.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
+  };
+
+  // 将 mousemove/mouseup 和 touchmove/touchend 绑定到 document 上
   useEffect(() => {
     if (!isDragging) return;
 
@@ -51,15 +69,29 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
       });
     };
 
-    const handleMouseUp = () => {
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      setPosition({
+        x: touch.clientX - dragStartRef.current.x,
+        y: touch.clientY - dragStartRef.current.y,
+      });
+    };
+
+    const handleEnd = () => {
       setIsDragging(false);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleEnd);
     };
   }, [isDragging]);
 
@@ -146,6 +178,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
               ref={containerRef}
               className="flex-1 relative overflow-hidden cursor-move bg-gray-950"
               onMouseDown={handleMouseDown}
+              onTouchStart={handleTouchStart}
             >
               {/* Image */}
               <img
@@ -165,7 +198,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
                 {/* Dark overlay with hole */}
                 <svg className="w-full h-full">
                   <defs>
-                    <mask id="crop-mask">
+                    <mask id={`crop-mask-${maskId}`}>
                       <rect x="0" y="0" width="100%" height="100%" fill="white" />
                       <rect
                         x="50%"
@@ -184,7 +217,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
                     width="100%"
                     height="100%"
                     fill="rgba(0,0,0,0.6)"
-                    mask="url(#crop-mask)"
+                    mask={`url(#crop-mask-${maskId})`}
                   />
                 </svg>
 

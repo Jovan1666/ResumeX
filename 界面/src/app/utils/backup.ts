@@ -2,10 +2,13 @@
  * 简历数据备份与恢复工具
  */
 
+// 与 store 中的持久化 key 保持一致，集中管理
+const STORAGE_KEY = 'resume-storage';
+
 // 导出数据为JSON文件
 export const exportBackup = () => {
   try {
-    const data = localStorage.getItem('resume-storage');
+    const data = localStorage.getItem(STORAGE_KEY);
     if (!data) {
       throw new Error('没有找到简历数据');
     }
@@ -29,23 +32,46 @@ export const exportBackup = () => {
   }
 };
 
-// 验证备份数据格式
+// 验证备份数据格式（增强版 - 检查关键字段完整性）
 const validateBackupData = (data: unknown): boolean => {
   try {
-    // 检查基本结构
     if (!data || typeof data !== 'object') return false;
     const obj = data as Record<string, unknown>;
     if (!obj.state || typeof obj.state !== 'object') return false;
     const state = obj.state as Record<string, unknown>;
     if (!state.resumes || typeof state.resumes !== 'object') return false;
 
-    // 检查每份简历的基本结构
     const resumes = state.resumes as Record<string, Record<string, unknown>>;
+    const resumeIds = Object.keys(resumes);
+    
+    // 至少有一份简历
+    if (resumeIds.length === 0) return false;
+
     for (const id in resumes) {
       const resume = resumes[id];
-      if (!resume.id || !resume.profile || !resume.modules) {
-        return false;
+      // 检查核心字段存在性
+      if (!resume.id || !resume.profile || !resume.modules) return false;
+      
+      // 检查 profile 基本结构
+      const profile = resume.profile as Record<string, unknown>;
+      if (typeof profile !== 'object' || profile === null) return false;
+      if (typeof profile.name !== 'string') return false;
+      
+      // 检查 modules 是数组
+      if (!Array.isArray(resume.modules)) return false;
+      
+      // 检查每个 module 的基本结构
+      for (const mod of resume.modules as Record<string, unknown>[]) {
+        if (!mod.id || typeof mod.type !== 'string' || !Array.isArray(mod.items)) {
+          return false;
+        }
       }
+    }
+
+    // 检查 activeResumeId 指向有效简历
+    if (state.activeResumeId && !resumes[state.activeResumeId as string]) {
+      // 自动修复：设为第一个可用的简历 ID
+      (state as Record<string, unknown>).activeResumeId = resumeIds[0];
     }
 
     return true;
@@ -57,6 +83,7 @@ const validateBackupData = (data: unknown): boolean => {
 // 从JSON文件导入数据
 export const importBackup = (file: File): Promise<{ success: boolean; message: string }> => {
   return new Promise((resolve) => {
+    try {
     const reader = new FileReader();
 
     reader.onload = (e) => {
@@ -70,10 +97,12 @@ export const importBackup = (file: File): Promise<{ success: boolean; message: s
           return;
         }
 
-        // 保存到localStorage
-        localStorage.setItem('resume-storage', content);
+        // 保存到 localStorage
+        localStorage.setItem(STORAGE_KEY, content);
         
-        resolve({ success: true, message: '数据恢复成功，页面将刷新' });
+        // 自动刷新页面以确保 Zustand store 与 localStorage 同步
+        resolve({ success: true, message: '数据恢复成功，页面即将刷新' });
+        setTimeout(() => window.location.reload(), 500);
       } catch (error) {
         console.error('导入备份失败:', error);
         resolve({ success: false, message: '文件解析失败，请确认文件格式' });
@@ -85,15 +114,22 @@ export const importBackup = (file: File): Promise<{ success: boolean; message: s
     };
 
     reader.readAsText(file);
+    } catch (error) {
+      // readAsText 可能在特殊情况下同步抛出异常（如无效 Blob）
+      console.error('文件读取异常:', error);
+      resolve({ success: false, message: '文件读取异常，请重试' });
+    }
   });
 };
 
 // 清空所有数据
 export const clearAllData = (): { success: boolean; message: string } => {
   try {
-    localStorage.removeItem('resume-storage');
+    localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('hasOnboarded');
-    return { success: true, message: '数据已清空，页面将刷新' };
+    // 自动刷新页面以确保状态同步
+    setTimeout(() => window.location.reload(), 500);
+    return { success: true, message: '数据已清空，页面即将刷新' };
   } catch (error) {
     console.error('清空数据失败:', error);
     return { success: false, message: '操作失败，请重试' };

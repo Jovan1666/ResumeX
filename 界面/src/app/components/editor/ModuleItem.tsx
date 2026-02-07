@@ -1,4 +1,4 @@
-import React, { useState, memo, useCallback } from 'react';
+import React, { useState, memo } from 'react';
 import { useResumeStore } from '@/app/store/useResumeStore';
 import { 
   ResumeModule, 
@@ -18,7 +18,7 @@ import {
 import { DatePicker } from './DatePicker';
 import { DebouncedInput, DebouncedTextarea } from './DebouncedInput';
 import { cn } from '@/app/lib/utils';
-import { getExamplesForModule, ContentExample } from '@/app/data/contentExamples';
+import { getExamplesForModule } from '@/app/data/contentExamples';
 
 // 描述输入框 placeholder 按模块类型分类
 const descriptionPlaceholders: Record<ModuleType, string> = {

@@ -130,7 +130,7 @@ export const TimelineTemplate: React.FC<TemplateProps> = ({ data }) => {
                 ></div>
                 
                 <div className="space-y-2">
-                  {module.items.map((item: ResumeItem, index: number) => (
+                  {module.items.map((item: ResumeItem, _index: number) => (
                     <div key={item.id} className="relative pl-8">
                       {/* Timeline Dot */}
                       <div 

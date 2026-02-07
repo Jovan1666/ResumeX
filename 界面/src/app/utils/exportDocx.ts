@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, ImageRun, TabStopPosition, TabStopType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle, ImageRun, TabStopPosition, TabStopType } from 'docx';
 import { ResumeData, isSkillsModule, ResumeItem, SkillItem } from '@/app/types/resume';
 import { themes } from '@/app/types/theme';
 import { generateExportFilename } from './exportFilename';
@@ -15,6 +15,35 @@ function base64ToUint8Array(dataUrl: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+/**
+ * 从 data URL 解析图片类型
+ */
+function getImageType(dataUrl: string): 'jpg' | 'png' | 'gif' | 'bmp' {
+  const match = dataUrl.match(/^data:image\/([\w+]+);/);
+  if (!match) return 'jpg';
+  const mime = match[1].toLowerCase();
+  if (mime === 'jpeg' || mime === 'jpg') return 'jpg';
+  if (mime === 'png') return 'png';
+  if (mime === 'gif') return 'gif';
+  if (mime === 'bmp') return 'bmp';
+  return 'jpg'; // 默认 fallback
+}
+
+/**
+ * 清理 HTML 标签，提取纯文本内容
+ */
+function stripHtml(html: string): string {
+  // 将 <br> / <br/> 转换为换行
+  let text = html.replace(/<br\s*\/?>/gi, '\n');
+  // 将 </p><p> 等块级标签转换为换行
+  text = text.replace(/<\/(?:p|div|li|h[1-6])>\s*<(?:p|div|li|h[1-6])[^>]*>/gi, '\n');
+  // 移除所有 HTML 标签
+  text = text.replace(/<[^>]+>/g, '');
+  // 解码常见 HTML 实体
+  text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"');
+  return text.trim();
 }
 
 /**
@@ -48,7 +77,7 @@ export async function exportToDocx(data: ResumeData): Promise<void> {
             new ImageRun({
               data: imgData,
               transformation: { width: 60, height: 60 },
-              type: 'jpg',
+              type: getImageType(profile.avatar),
             }),
           );
         }
@@ -187,9 +216,10 @@ export async function exportToDocx(data: ResumeData): Promise<void> {
           );
         }
 
-        // 描述（每行加 bullet）
+        // 描述（每行加 bullet，先清理 HTML 标签）
         if (item.description) {
-          const lines = item.description.split('\n').filter(l => l.trim());
+          const plainText = stripHtml(item.description);
+          const lines = plainText.split('\n').filter(l => l.trim());
           for (const line of lines) {
             const cleanLine = line.trim().replace(/^[•·\-–]\s*/, '');
             children.push(
@@ -223,14 +253,19 @@ export async function exportToDocx(data: ResumeData): Promise<void> {
     }],
   });
 
-  // 导出
-  const blob = await Packer.toBlob(doc);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = generateExportFilename(data, 'docx');
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // 导出（包含错误处理）
+  try {
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = generateExportFilename(data, 'docx');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Word文档生成失败:', error);
+    throw new Error('Word文档导出失败，请重试');
+  }
 }

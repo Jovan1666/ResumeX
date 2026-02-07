@@ -22,10 +22,18 @@ export const DebouncedInput = memo<DebouncedInputProps>(({
   const isTypingRef = useRef(false);
 
   // 外部值变化时同步（非用户输入导致的变化，如 undo/redo）
+  // 关键：即使正在输入，如果外部值变化（undo/redo），也要清除 pending 的 debounce
+  // 否则 debounce 回调会将旧的本地值覆盖回 store，导致 undo 被吞掉
   useEffect(() => {
-    if (!isTypingRef.current) {
-      setLocalValue(externalValue);
+    if (isTypingRef.current) {
+      // 正在输入期间外部值变了（undo/redo 触发）：取消 pending debounce 并同步
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = undefined;
+      }
+      isTypingRef.current = false;
     }
+    setLocalValue(externalValue);
   }, [externalValue]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,9 +97,14 @@ export const DebouncedTextarea = memo<DebouncedTextareaProps>(({
   const isTypingRef = useRef(false);
 
   useEffect(() => {
-    if (!isTypingRef.current) {
-      setLocalValue(externalValue);
+    if (isTypingRef.current) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = undefined;
+      }
+      isTypingRef.current = false;
     }
+    setLocalValue(externalValue);
   }, [externalValue]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

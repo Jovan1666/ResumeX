@@ -80,15 +80,19 @@ export const BasicInfoForm = memo(() => {
                   </>
                 )}
               </div>
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleAvatarChange} 
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
+              {/* 仅在没有头像时显示上传 input 覆盖层 */}
+              {!profile.avatar && (
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleAvatarChange} 
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  aria-label="上传照片"
+                />
+              )}
               {profile.avatar && (
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
-                  <label className="cursor-pointer text-white hover:text-blue-200 p-1" title="更换照片">
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg z-10">
+                  <label className="cursor-pointer text-white hover:text-blue-200 p-1" title="更换照片" aria-label="更换照片">
                     <Upload size={14} />
                     <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
                   </label>

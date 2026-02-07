@@ -3,10 +3,28 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ToastProvider } from '@/app/components/ui/toast';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
-// 懒加载路由组件，提升首屏加载速度
-const LandingPage = lazy(() => import('@/app/components/landing/LandingPage').then(m => ({ default: m.LandingPage })));
-const Dashboard = lazy(() => import('@/app/components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
-const EditorLayout = lazy(() => import('@/app/components/editor/EditorLayout').then(m => ({ default: m.EditorLayout })));
+// 带重试的懒加载（网络故障时自动重试最多 3 次，避免白屏）
+function lazyWithRetry<T extends React.ComponentType>(
+  factory: () => Promise<{ default: T }>,
+  retries = 3
+): React.LazyExoticComponent<T> {
+  return lazy(() => {
+    const attempt = (remaining: number): Promise<{ default: T }> =>
+      factory().catch((err) => {
+        if (remaining <= 0) throw err;
+        // 等待 1 秒后重试
+        return new Promise<{ default: T }>((resolve) =>
+          setTimeout(() => resolve(attempt(remaining - 1)), 1000)
+        );
+      });
+    return attempt(retries);
+  });
+}
+
+// 懒加载路由组件，提升首屏加载速度（含网络故障重试）
+const LandingPage = lazyWithRetry(() => import('@/app/components/landing/LandingPage').then(m => ({ default: m.LandingPage })));
+const Dashboard = lazyWithRetry(() => import('@/app/components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const EditorLayout = lazyWithRetry(() => import('@/app/components/editor/EditorLayout').then(m => ({ default: m.EditorLayout })));
 
 // 加载中组件
 const LoadingFallback: React.FC = () => (

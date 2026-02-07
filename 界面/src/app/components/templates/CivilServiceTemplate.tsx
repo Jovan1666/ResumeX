@@ -1,7 +1,6 @@
 import React from 'react';
 import { ResumeData, isSkillsModule, SkillItem, ResumeItem } from '@/app/types/resume';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
-import { Phone, Mail, MapPin } from 'lucide-react';
 
 interface TemplateProps {
   data: ResumeData;

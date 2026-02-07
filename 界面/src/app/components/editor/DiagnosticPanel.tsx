@@ -41,6 +41,31 @@ const scrollToField = (itemId: string, onClose: () => void) => {
   }, 300);
 };
 
+// 提取到组件外部，避免每次渲染创建新组件引用导致完全卸载/重新挂载
+const CheckItemRow: React.FC<{ item: CheckItem; showLocate?: boolean; onClose: () => void }> = ({ item, showLocate = true, onClose }) => (
+  <div className={`flex items-start gap-3 py-2.5 px-3 rounded-lg ${item.passed ? 'bg-green-50/60' : 'bg-gray-50'}`}>
+    <div className={`mt-0.5 shrink-0 ${item.passed ? 'text-green-500' : 'text-gray-300'}`}>
+      {item.passed ? <Check size={16} strokeWidth={3} /> : <Circle size={16} />}
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className={`text-sm ${item.passed ? 'text-gray-500 line-through' : 'text-gray-800 font-medium'}`}>
+        {item.label}
+      </p>
+      {!item.passed && item.detail && (
+        <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
+      )}
+    </div>
+    {!item.passed && showLocate && (
+      <button
+        onClick={() => scrollToField(item.id, onClose)}
+        className="text-xs text-blue-500 hover:text-blue-700 font-medium shrink-0 flex items-center gap-0.5"
+      >
+        去填写 <ArrowRight size={11} />
+      </button>
+    )}
+  </div>
+);
+
 export const DiagnosticPanel: React.FC<DiagnosticPanelProps> = ({
   isOpen,
   onClose,
@@ -164,34 +189,10 @@ export const DiagnosticPanel: React.FC<DiagnosticPanelProps> = ({
     return { required, recommended, format };
   }, [resumeData, contentOverflow]);
 
-  const allItems = [...checklist.required, ...checklist.recommended, ...checklist.format];
-  const completedCount = allItems.filter(i => i.passed).length;
+  const allItems = useMemo(() => [...checklist.required, ...checklist.recommended, ...checklist.format], [checklist]);
+  const completedCount = useMemo(() => allItems.filter(i => i.passed).length, [allItems]);
   const totalCount = allItems.length;
-  const requiredAllPassed = checklist.required.every(i => i.passed);
-
-  const CheckItemRow: React.FC<{ item: CheckItem; showLocate?: boolean }> = ({ item, showLocate = true }) => (
-    <div className={`flex items-start gap-3 py-2.5 px-3 rounded-lg ${item.passed ? 'bg-green-50/60' : 'bg-gray-50'}`}>
-      <div className={`mt-0.5 shrink-0 ${item.passed ? 'text-green-500' : 'text-gray-300'}`}>
-        {item.passed ? <Check size={16} strokeWidth={3} /> : <Circle size={16} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm ${item.passed ? 'text-gray-500 line-through' : 'text-gray-800 font-medium'}`}>
-          {item.label}
-        </p>
-        {!item.passed && item.detail && (
-          <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
-        )}
-      </div>
-      {!item.passed && showLocate && (
-        <button
-          onClick={() => scrollToField(item.id, onClose)}
-          className="text-xs text-blue-500 hover:text-blue-700 font-medium shrink-0 flex items-center gap-0.5"
-        >
-          去填写 <ArrowRight size={11} />
-        </button>
-      )}
-    </div>
-  );
+  const requiredAllPassed = useMemo(() => checklist.required.every(i => i.passed), [checklist.required]);
 
   return (
     <AnimatePresence>
@@ -259,7 +260,7 @@ export const DiagnosticPanel: React.FC<DiagnosticPanelProps> = ({
                 </div>
                 <div className="space-y-1">
                   {checklist.required.map(item => (
-                    <CheckItemRow key={item.id} item={item} />
+                    <CheckItemRow key={item.id} item={item} onClose={onClose} />
                   ))}
                 </div>
               </div>
@@ -274,7 +275,7 @@ export const DiagnosticPanel: React.FC<DiagnosticPanelProps> = ({
                 </div>
                 <div className="space-y-1">
                   {checklist.recommended.map(item => (
-                    <CheckItemRow key={item.id} item={item} />
+                    <CheckItemRow key={item.id} item={item} onClose={onClose} />
                   ))}
                 </div>
               </div>
@@ -289,7 +290,7 @@ export const DiagnosticPanel: React.FC<DiagnosticPanelProps> = ({
                 </div>
                 <div className="space-y-1">
                   {checklist.format.map(item => (
-                    <CheckItemRow key={item.id} item={item} showLocate={false} />
+                    <CheckItemRow key={item.id} item={item} showLocate={false} onClose={onClose} />
                   ))}
                 </div>
               </div>

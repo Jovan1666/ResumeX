@@ -74,8 +74,17 @@ const ScaledPreview: React.FC<{ templateId: TemplateId; lazy?: boolean }> = memo
       }
     };
     updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    // 防抖 resize 监听，避免高频触发重渲染
+    let timer: ReturnType<typeof setTimeout>;
+    const debouncedUpdate = () => {
+      clearTimeout(timer);
+      timer = setTimeout(updateScale, 150);
+    };
+    window.addEventListener('resize', debouncedUpdate);
+    return () => {
+      window.removeEventListener('resize', debouncedUpdate);
+      clearTimeout(timer);
+    };
   }, [isVisible]);
 
   const previewData = useMemo<ResumeData>(() => ({
@@ -478,8 +487,9 @@ const filterTags = [
 ];
 
 export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose }) => {
-  const { resumes, activeResumeId, setTemplate } = useResumeStore();
-  const currentTemplate = resumes[activeResumeId]?.template;
+  // 细粒度选择器：仅订阅当前模板 ID，避免 store 其他状态变化触发重渲染
+  const currentTemplate = useResumeStore(state => state.resumes[state.activeResumeId]?.template);
+  const setTemplate = useResumeStore(state => state.setTemplate);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   // null = 列表模式，有值 = 预览模式
@@ -504,15 +514,15 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
     onClose();
   };
 
-  // 过滤模板
-  const filteredTemplates = templates.filter(t => {
+  // 过滤模板（使用 useMemo 避免每次渲染都重新计算 35 个模板的过滤）
+  const filteredTemplates = useMemo(() => templates.filter(t => {
     const matchesSearch = !searchQuery || 
       t.nameZh.includes(searchQuery) || 
       t.description.includes(searchQuery) ||
       t.tags.some(tag => tag.includes(searchQuery));
     const matchesFilter = !activeFilter || t.tags.some(tag => tag.includes(activeFilter));
     return matchesSearch && matchesFilter;
-  });
+  }), [searchQuery, activeFilter]);
 
   return (
     <AnimatePresence>

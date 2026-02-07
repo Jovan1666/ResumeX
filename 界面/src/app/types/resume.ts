@@ -1,4 +1,4 @@
-import { ThemeColor, GlobalSettings } from './theme';
+import { GlobalSettings } from './theme';
 
 export type TemplateId = 
   | 'tech' 

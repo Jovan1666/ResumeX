@@ -1,7 +1,7 @@
 import React from 'react';
 import { ResumeData, isSkillsModule, SkillItem, ResumeItem } from '@/app/types/resume';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
-import { Phone, Mail, MapPin } from 'lucide-react';
+import { Phone, Mail } from 'lucide-react';
 
 interface TemplateProps {
   data: ResumeData;
@@ -169,7 +169,7 @@ export const AccountantTemplate: React.FC<TemplateProps> = ({ data }) => {
                           item.date && <span key="date" className="font-bold" style={{ fontSize: `${0.85 * fontSize}rem` }}>{item.date}</span>,
                           item.subtitle && <span key="subtitle" style={{ color: primaryColor }}>{item.subtitle}</span>,
                           item.title && <span key="title" className="text-gray-600">{item.title}</span>
-                        ].filter(Boolean).map((el, i, arr) => (
+                        ].filter(Boolean).map((el, i) => (
                           <React.Fragment key={i}>
                             {i > 0 && <span className="mx-4 text-gray-300">|</span>}
                             {el}

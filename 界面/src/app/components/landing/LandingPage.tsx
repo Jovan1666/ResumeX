@@ -19,8 +19,17 @@ const LandingTemplatePreview: React.FC<{ templateId: TemplateId; themeColor: The
       }
     };
     updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    // 防抖 resize 监听
+    let timer: ReturnType<typeof setTimeout>;
+    const debouncedUpdate = () => {
+      clearTimeout(timer);
+      timer = setTimeout(updateScale, 150);
+    };
+    window.addEventListener('resize', debouncedUpdate);
+    return () => {
+      window.removeEventListener('resize', debouncedUpdate);
+      clearTimeout(timer);
+    };
   }, []);
 
   const previewData = useMemo<ResumeData>(() => ({
@@ -269,11 +278,19 @@ export const LandingPage: React.FC = () => {
             </div>
             简历制作
           </div>
-          <div className="flex justify-center gap-8 mb-8 text-sm">
-            <span className="text-gray-400 cursor-default" title="数据完全本地存储，安全可靠">关于我们</span>
-            <span className="text-gray-400 cursor-default" title="所有数据仅保存在您的浏览器中，不会上传至服务器">隐私政策</span>
-            <span className="text-gray-400 cursor-default" title="免费使用，无任何隐藏费用">使用条款</span>
-            <span className="text-gray-400 cursor-default" title="开源项目，欢迎反馈建议">联系我们</span>
+          <div className="flex flex-wrap justify-center gap-6 mb-8 text-sm">
+            <span className="text-gray-400 flex items-center gap-1" title="数据完全本地存储，安全可靠">
+              <Shield size={12} /> 数据本地存储
+            </span>
+            <span className="text-gray-400 flex items-center gap-1" title="所有数据仅保存在您的浏览器中，不会上传至服务器">
+              隐私安全保障
+            </span>
+            <span className="text-gray-400 flex items-center gap-1" title="免费使用，无任何隐藏费用">
+              完全免费使用
+            </span>
+            <span className="text-gray-400 flex items-center gap-1" title="MIT 开源许可证">
+              开源项目
+            </span>
           </div>
           <p className="text-sm">© {new Date().getFullYear()} 简历制作. 保留所有权利.</p>
         </div>

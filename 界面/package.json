@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "license": "MIT",
   "description": "专业简历制作工具 - React + TypeScript + Tailwind CSS",
   "scripts": {
     "dev": "vite",

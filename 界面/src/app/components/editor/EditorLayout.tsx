@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { cn } from '@/app/lib/utils';
-import { ModuleErrorBoundary } from '@/app/components/ErrorBoundary';
 import { exportToDocx } from '@/app/utils/exportDocx';
 import { generateExportFilename } from '@/app/utils/exportFilename';
 
@@ -90,11 +89,15 @@ export const EditorLayout: React.FC = () => {
       let yOffset = 0;
       let pageNum = 0;
 
-      // 如果内容超出一页，分页处理
-      while (yOffset < imgH) {
+      // 生成一次 DataURL，避免循环内重复调用（每次约 50-100ms）
+      const canvasDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+      // 如果内容超出一页，分页处理（防护：限制最大页数，避免 imgH 异常导致死循环）
+      const MAX_PAGES = 20;
+      while (yOffset < imgH && pageNum < MAX_PAGES && isFinite(imgH) && imgH > 0) {
         if (pageNum > 0) pdf.addPage();
         pdf.addImage(
-          canvas.toDataURL('image/jpeg', 0.95),
+          canvasDataUrl,
           'JPEG',
           0,
           -yOffset,

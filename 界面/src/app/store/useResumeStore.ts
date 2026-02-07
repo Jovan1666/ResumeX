@@ -16,9 +16,28 @@ import { v4 as uuidv4 } from 'uuid';
 import { GlobalSettings } from '@/app/types/theme';
 import { UndoRedoManager } from '@/app/hooks/useUndoRedo';
 
-// Undo/Redo 历史管理器（store 外部实例，不被持久化）
-const historyManager = new UndoRedoManager<ResumeData>(30);
-let _skipHistory = false;
+// 每个简历独立的历史管理器，避免切换简历后撤销数据覆盖
+const historyManagers = new Map<string, UndoRedoManager<ResumeData>>();
+const getHistoryManager = (resumeId: string): UndoRedoManager<ResumeData> => {
+  let manager = historyManagers.get(resumeId);
+  if (!manager) {
+    manager = new UndoRedoManager<ResumeData>(30);
+    historyManagers.set(resumeId, manager);
+  }
+  return manager;
+};
+// 使用时间戳标记跳过历史记录：undo/redo 后 2 秒内的 pushHistory 被忽略
+// 这比简单的 boolean 标志更可靠，因为 pushHistory 是 debounced 1 秒后触发的
+let _skipHistoryUntil = 0;
+
+// 安全的深拷贝（兼容 immer Proxy 对象）
+function safeDeepClone<T>(obj: T): T {
+  try {
+    return structuredClone(obj);
+  } catch {
+    return JSON.parse(JSON.stringify(obj));
+  }
+}
 
 interface ResumeState {
   resumes: Record<string, ResumeData>;
@@ -73,12 +92,12 @@ export const useResumeStore = create<ResumeState>()(
       addResume: () => {
         const newId = uuidv4();
         set((state) => {
-          state.resumes[newId] = { 
-            ...initialResumeData, 
-            id: newId, 
-            title: "未命名简历", 
-            lastModified: Date.now() 
-          };
+          // 使用深拷贝避免嵌套对象共享引用
+          const fresh = safeDeepClone(initialResumeData);
+          fresh.id = newId;
+          fresh.title = "未命名简历";
+          fresh.lastModified = Date.now();
+          state.resumes[newId] = fresh;
           state.activeResumeId = newId;
         });
       },
@@ -86,6 +105,8 @@ export const useResumeStore = create<ResumeState>()(
       deleteResume: (id) => {
         set((state) => {
           delete state.resumes[id];
+          // 清理对应的历史管理器
+          historyManagers.delete(id);
           
           // If active resume is deleted, switch to another one or create new
           if (state.activeResumeId === id) {
@@ -93,13 +114,12 @@ export const useResumeStore = create<ResumeState>()(
             if (remainingIds.length > 0) {
               state.activeResumeId = remainingIds[0];
             } else {
-              // Create new if all deleted
+              // Create new if all deleted - 使用深拷贝
               const freshId = uuidv4();
-              state.resumes[freshId] = { 
-                ...initialResumeData, 
-                id: freshId, 
-                lastModified: Date.now() 
-              };
+              const fresh = safeDeepClone(initialResumeData);
+              fresh.id = freshId;
+              fresh.lastModified = Date.now();
+              state.resumes[freshId] = fresh;
               state.activeResumeId = freshId;
             }
           }
@@ -111,7 +131,7 @@ export const useResumeStore = create<ResumeState>()(
         set((state) => {
           const source = state.resumes[id];
           if (!source) return;
-          const copy = structuredClone(source) as ResumeData;
+          const copy = safeDeepClone(source) as ResumeData;
           copy.id = newId;
           copy.title = `${source.title}（副本）`;
           copy.lastModified = Date.now();
@@ -128,7 +148,7 @@ export const useResumeStore = create<ResumeState>()(
       addResumeFromPreset: (templateId, moduleOrder) => {
         const newId = uuidv4();
         set((state) => {
-          const base = structuredClone(initialResumeData) as ResumeData;
+          const base = safeDeepClone(initialResumeData) as ResumeData;
           base.id = newId;
           base.title = '未命名简历';
           base.template = templateId;
@@ -150,8 +170,10 @@ export const useResumeStore = create<ResumeState>()(
 
       updateResume: (id, data) => {
         set((state) => {
-          Object.assign(state.resumes[id], data);
-          state.resumes[id].lastModified = Date.now();
+          const resume = state.resumes[id];
+          if (!resume) return;
+          Object.assign(resume, data);
+          resume.lastModified = Date.now();
         });
       },
 
@@ -160,7 +182,9 @@ export const useResumeStore = create<ResumeState>()(
       updateProfile: (field, value) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
-          resume.profile[field] = value;
+          if (!resume) return;
+          // 类型安全的赋值（profile 的字符串字段）
+          (resume.profile as Record<string, unknown>)[field as string] = value;
           resume.lastModified = Date.now();
         });
       },
@@ -168,6 +192,7 @@ export const useResumeStore = create<ResumeState>()(
       updateSettings: (settings) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           Object.assign(resume.settings, settings);
           resume.lastModified = Date.now();
         });
@@ -176,6 +201,7 @@ export const useResumeStore = create<ResumeState>()(
       setTemplate: (templateId) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           resume.template = templateId;
           resume.lastModified = Date.now();
         });
@@ -192,6 +218,7 @@ export const useResumeStore = create<ResumeState>()(
         
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           resume.modules.push(newModule);
           resume.lastModified = Date.now();
         });
@@ -200,6 +227,7 @@ export const useResumeStore = create<ResumeState>()(
       removeModule: (moduleId) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           const index = resume.modules.findIndex(m => m.id === moduleId);
           if (index !== -1) {
             resume.modules.splice(index, 1);
@@ -211,6 +239,7 @@ export const useResumeStore = create<ResumeState>()(
       updateModule: (moduleId, data) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           const module = resume.modules.find(m => m.id === moduleId);
           if (module) {
             Object.assign(module, data);
@@ -222,6 +251,7 @@ export const useResumeStore = create<ResumeState>()(
       reorderModules: (modules) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           resume.modules = modules;
           resume.lastModified = Date.now();
         });
@@ -231,6 +261,7 @@ export const useResumeStore = create<ResumeState>()(
         const newItem = { ...item, id: (item as ModuleItemType).id || uuidv4() } as ModuleItemType;
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           const module = resume.modules.find(m => m.id === moduleId);
           if (module) {
             (module.items as ModuleItemType[]).push(newItem);
@@ -242,6 +273,7 @@ export const useResumeStore = create<ResumeState>()(
       updateModuleItem: (moduleId, itemId, field, value) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           const module = resume.modules.find(m => m.id === moduleId);
           if (module) {
             const item = module.items.find(i => i.id === itemId);
@@ -256,6 +288,7 @@ export const useResumeStore = create<ResumeState>()(
       removeModuleItem: (moduleId, itemId) => {
         set((state) => {
           const resume = state.resumes[state.activeResumeId];
+          if (!resume) return;
           const module = resume.modules.find(m => m.id === moduleId);
           if (module) {
             const index = module.items.findIndex(i => i.id === itemId);
@@ -269,50 +302,61 @@ export const useResumeStore = create<ResumeState>()(
 
       resetData: (id) => {
         set((state) => {
+          if (!state.resumes[id]) return;
           const title = state.resumes[id].title;
+          const fresh = safeDeepClone(initialResumeData);
           state.resumes[id] = { 
-            ...initialResumeData, 
+            ...fresh, 
             id, 
             title, 
             lastModified: Date.now() 
           };
         });
+        // 清空该简历的历史记录
+        historyManagers.delete(id);
       },
 
-      // --- Undo/Redo ---
+      // --- Undo/Redo（每个简历独立历史栈） ---
       pushHistory: () => {
+        // 如果当前在 undo/redo 的冷却期内（2秒），跳过 pushHistory
+        // 这防止 undo/redo 导致的 resumeData 变化触发 debounced pushHistory 污染历史栈
+        if (Date.now() < _skipHistoryUntil) return;
         const state = get();
-        const resume = state.resumes[state.activeResumeId];
+        const resumeId = state.activeResumeId;
+        const resume = state.resumes[resumeId];
         if (resume) {
-          historyManager.push(structuredClone(resume) as ResumeData);
+          getHistoryManager(resumeId).push(safeDeepClone(resume) as ResumeData);
         }
       },
 
       undo: () => {
         const state = get();
-        const current = state.resumes[state.activeResumeId];
+        const resumeId = state.activeResumeId;
+        const current = state.resumes[resumeId];
         if (!current) return;
-        const prev = historyManager.undo(structuredClone(current) as ResumeData);
+        const manager = getHistoryManager(resumeId);
+        const prev = manager.undo(safeDeepClone(current) as ResumeData);
         if (prev) {
-          _skipHistory = true;
+          // 设置 2 秒冷却期，覆盖 EditorLayout 中 1 秒 debounce 的 pushHistory
+          _skipHistoryUntil = Date.now() + 2000;
           set((s) => {
             s.resumes[s.activeResumeId] = prev as ResumeData;
           });
-          _skipHistory = false;
         }
       },
 
       redo: () => {
         const state = get();
-        const current = state.resumes[state.activeResumeId];
+        const resumeId = state.activeResumeId;
+        const current = state.resumes[resumeId];
         if (!current) return;
-        const next = historyManager.redo(structuredClone(current) as ResumeData);
+        const manager = getHistoryManager(resumeId);
+        const next = manager.redo(safeDeepClone(current) as ResumeData);
         if (next) {
-          _skipHistory = true;
+          _skipHistoryUntil = Date.now() + 2000;
           set((s) => {
             s.resumes[s.activeResumeId] = next as ResumeData;
           });
-          _skipHistory = false;
         }
       }
     })),
