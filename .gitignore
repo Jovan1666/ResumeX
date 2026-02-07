@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+
+# Misc
+*.local
+.cursor/
+
+# Internal docs (contain competitive analysis and internal strategy)
+docs/
+简历App开发完整方案_专业版.md
+
+# Orphaned lock file (no root package.json)
+/package-lock.json
+
+# Figma Make generated files (boilerplate, not project content)
+界面/guidelines/
+界面/README.md

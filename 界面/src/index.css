@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@layer base {
+  @media print {
+    @page {
+      margin: 0;
+      size: auto;
+    }
+    body {
+      margin: 0;
+      -webkit-print-color-adjust: exact;
+    }
+  }
+}
+
+html, body, #root {
+  height: 100%;
+}

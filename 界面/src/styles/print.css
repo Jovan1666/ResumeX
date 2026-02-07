@@ -1,0 +1,99 @@
+/* 打印优化样式 */
+
+@media print {
+  /* 隐藏非打印元素 */
+  .no-print,
+  header,
+  nav,
+  .sidebar,
+  .toolbar,
+  .score-badge,
+  .diagnostic-panel,
+  .modal,
+  .toast,
+  .onboarding-overlay,
+  [class*="fixed"],
+  button:not(.print-btn) {
+    display: none !important;
+  }
+
+  /* 重置页面布局 */
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* 预览区域全屏 */
+  .preview-container,
+  .editor-layout {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+
+  /* 简历内容样式 */
+  .resume-content,
+  [class*="ResumeRenderer"] {
+    transform: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+  }
+
+  /* 分页设置 */
+  .module-section,
+  .experience-item,
+  .education-item,
+  .project-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 防止标题孤立 */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* 去除链接下划线和颜色 */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  /* 保证颜色打印 */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 页面边距 */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  /* 隐藏滚动条 */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 打印预览模式 */
+body.print-mode {
+  overflow: hidden;
+}
+
+body.print-mode .print-preview-overlay {
+  display: flex;
+}
