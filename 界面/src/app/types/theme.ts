@@ -1,6 +1,6 @@
 export type ThemeColor = 'tech-orange' | 'business-blue' | 'minimal-bw' | 'vibrant-red' | 'pro-blue' | 'emerald-green' | 'creative-purple' | 'warm-amber' | 'elegant-gold' | 'fresh-teal' | 'indigo-data' | 'navy-compact';
-export type FontFamily = 'sans' | 'serif' | 'mono';
-export type SpacingLevel = 'compact' | 'standard' | 'relaxed';
+export type FontFamily = 'sans' | 'serif' | 'mono' | 'kaiti' | 'fangsong' | 'yahei' | 'heiti';
+export type SpacingLevel = 'compact' | 'standard' | 'relaxed' | 'custom';
 
 export interface ThemeConfig {
   id: ThemeColor;
@@ -178,8 +178,10 @@ export const themes: Record<ThemeColor, ThemeConfig> = {
 export interface GlobalSettings {
   themeColor: ThemeColor;
   fontFamily: FontFamily;
-  fontSizeScale: number; // 0.9 to 1.1
+  fontSizeScale: number; // 0.85 to 1.1（一键适应可压到 0.80）
   lineHeight: SpacingLevel;
   pageMargin: SpacingLevel;
+  customLineHeight?: number;  // 自定义行高值，范围 1.0 ~ 2.0
+  customPageMargin?: number;  // 自定义左右页边距，单位 mm，范围 10 ~ 30
   language: 'zh' | 'en';
 }

@@ -7,6 +7,10 @@
   --font-serif: 'Noto Serif SC', 'Source Han Serif', 'SimSun', Georgia, serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
   --font-display: 'Playfair Display', 'Noto Serif SC', Georgia, serif;
+  --font-kaiti: 'KaiTi', 'STKaiti', 'AR PL KaitiM GB', 'Noto Serif SC', serif;
+  --font-fangsong: 'FangSong', 'STFangsong', 'Noto Serif SC', serif;
+  --font-yahei: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-heiti: 'SimHei', 'STHeiti', 'Noto Sans SC', sans-serif;
 }
 
 /* 基础字体应用 */
@@ -21,4 +25,57 @@ body {
   body {
     font-family: var(--font-sans);
   }
+}
+
+/* ===== 简历页面全局样式设置 ===== */
+
+/* --- 字体族映射：覆盖模板硬编码的字体 --- */
+.resume-page[data-font="sans"] > div {
+  font-family: var(--font-sans) !important;
+}
+.resume-page[data-font="serif"] > div {
+  font-family: var(--font-serif) !important;
+}
+.resume-page[data-font="mono"] > div {
+  font-family: var(--font-mono) !important;
+}
+.resume-page[data-font="kaiti"] > div {
+  font-family: var(--font-kaiti) !important;
+}
+.resume-page[data-font="fangsong"] > div {
+  font-family: var(--font-fangsong) !important;
+}
+.resume-page[data-font="yahei"] > div {
+  font-family: var(--font-yahei) !important;
+}
+.resume-page[data-font="heiti"] > div {
+  font-family: var(--font-heiti) !important;
+}
+
+/* --- 行间距映射 --- */
+.resume-page[data-line-height="compact"] > div {
+  line-height: 1.35 !important;
+}
+.resume-page[data-line-height="standard"] > div {
+  line-height: 1.5 !important;
+}
+.resume-page[data-line-height="relaxed"] > div {
+  line-height: 1.75 !important;
+}
+.resume-page[data-line-height="custom"] > div {
+  line-height: var(--custom-line-height, 1.5) !important;
+}
+
+/* --- 页边距映射 --- */
+.resume-page[data-margin="compact"] > div {
+  padding: 10mm 15mm !important;
+}
+.resume-page[data-margin="standard"] > div {
+  padding: 14mm 20mm !important;
+}
+.resume-page[data-margin="relaxed"] > div {
+  padding: 18mm 25mm !important;
+}
+.resume-page[data-margin="custom"] > div {
+  padding: calc(var(--custom-margin, 20mm) * 0.7) var(--custom-margin, 20mm) !important;
 }

@@ -49,6 +49,16 @@ const toastIconStyles: Record<ToastType, string> = {
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timerMapRef = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // 组件卸载时清理所有定时器，防止内存泄漏
+  React.useEffect(() => {
+    const timerMap = timerMapRef.current;
+    return () => {
+      timerMap.forEach(timer => clearTimeout(timer));
+      timerMap.clear();
+    };
+  }, []);
 
   const showToast = useCallback((type: ToastType, message: string, duration = 3000) => {
     const id = Date.now().toString();
@@ -57,14 +67,22 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts((prev) => [...prev, newToast]);
 
     if (duration > 0) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
+        timerMapRef.current.delete(id);
       }, duration);
+      timerMapRef.current.set(id, timer);
     }
   }, []);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+    // 手动关闭时也清理对应的定时器
+    const timer = timerMapRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timerMapRef.current.delete(id);
+    }
   }, []);
 
   return (

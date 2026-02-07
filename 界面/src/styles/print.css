@@ -41,6 +41,7 @@
 
   /* 简历内容样式 */
   .resume-content,
+  .resume-page,
   [class*="ResumeRenderer"] {
     transform: none !important;
     box-shadow: none !important;

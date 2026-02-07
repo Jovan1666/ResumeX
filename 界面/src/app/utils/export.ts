@@ -48,13 +48,16 @@ export const exportToPng = async (
     }
 
     const downloadUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(downloadUrl);
+    try {
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      URL.revokeObjectURL(downloadUrl);
+    }
 
     onProgress?.(1);
     return { success: true, message: 'PNG导出成功' };
@@ -67,7 +70,13 @@ export const exportToPng = async (
 /**
  * 使用打印功能导出PDF（备用方案）
  */
+let _isPrinting = false;
+
 export const printToPdf = (element: HTMLElement, filename: string = '简历') => {
+  // 防重入：避免快速多次调用导致 listener 堆积
+  if (_isPrinting) return;
+  _isPrinting = true;
+
   // 创建打印样式
   const style = document.createElement('style');
   style.innerHTML = `
@@ -99,6 +108,8 @@ export const printToPdf = (element: HTMLElement, filename: string = '简历') =>
 
   // 监听 afterprint 事件来恢复状态（兼容异步打印对话框）
   const restoreState = () => {
+    if (!_isPrinting) return; // 防止兜底 setTimeout 重复执行
+    _isPrinting = false;
     element.id = originalId;
     document.title = originalTitle;
     if (style.parentNode) document.head.removeChild(style);
