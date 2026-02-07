@@ -15,12 +15,13 @@ import {
   Layout, CheckCircle2, Cloud, Keyboard, AlertTriangle,
   Settings, Image, ChevronDown, Eye, Edit3, Menu, FileType
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { cn } from '@/app/lib/utils';
 import { exportToDocx } from '@/app/utils/exportDocx';
 import { generateExportFilename } from '@/app/utils/exportFilename';
 
 export const EditorLayout: React.FC = () => {
+  const navigate = useNavigate();
   // 细粒度选择器，减少不必要的重渲染
   const resumeData = useResumeStore(state => state.resumes[state.activeResumeId]);
   const activeResumeId = useResumeStore(state => state.activeResumeId);
@@ -39,10 +40,18 @@ export const EditorLayout: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [contentOverflow, setContentOverflow] = useState(0); // 百分比
   const [isExporting, setIsExporting] = useState(false);
+  const [contentDims, setContentDims] = useState({ width: 793, height: 1123 }); // 简历内容实际尺寸
   const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   
   const { isMobile, isTablet } = useBreakpoint();
+
+  // 如果没有活动简历（如所有简历已被删除），自动跳转到仪表盘
+  useEffect(() => {
+    if (!resumeData) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [resumeData, navigate]);
   
   const printRef = useRef<HTMLDivElement>(null);
   const zoomContainerRef = useRef<HTMLDivElement>(null);
@@ -454,6 +463,22 @@ export const EditorLayout: React.FC = () => {
 
   // 导出前确认弹窗 (状态声明已移到组件顶部)
 
+  // 监听简历内容尺寸变化，用于缩放时正确计算滚动区域
+  useEffect(() => {
+    const el = printRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setContentDims({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // 预览区容器 ref（用于计算适应宽度缩放）
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const handleFitWidth = useCallback(() => {
@@ -767,28 +792,42 @@ export const EditorLayout: React.FC = () => {
 
           {/* Resume Canvas Container */}
           <div className="flex-1 w-full overflow-auto flex justify-center p-8 pb-32">
-            <div ref={zoomContainerRef} className="relative origin-top" style={{ transform: `scale(${zoom})` }}>
-              {/* 简历纸张 */}
-              <div 
-                ref={printRef} 
-                className="shadow-2xl transition-shadow duration-300 ease-out bg-white"
+            {/* 尺寸包裹层：显式设置缩放后的宽高，让 overflow-auto 正确计算滚动区域 */}
+            <div
+              style={{
+                width: contentDims.width * zoom,
+                height: contentDims.height * zoom,
+                flexShrink: 0,
+                position: 'relative',
+              }}
+            >
+              <div
+                ref={zoomContainerRef}
+                className="absolute top-0 left-0 origin-top-left"
+                style={{ transform: `scale(${zoom})` }}
               >
-                <ResumeRenderer data={deferredResumeData!} />
-              </div>
-
-              {/* A4 分页指示线 - 仅预览时显示，打印时隐藏 */}
-              {contentOverflow > 100 && (
-                <div
-                  className="absolute left-0 right-0 pointer-events-none print:hidden"
-                  style={{ top: '297mm' }}
+                {/* 简历纸张 */}
+                <div 
+                  ref={printRef} 
+                  className="shadow-2xl transition-shadow duration-300 ease-out bg-white"
                 >
-                  <div className="border-t-2 border-dashed border-red-400 relative">
-                    <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap">
-                      A4 页面底部 - 以下内容将在第2页
-                    </span>
-                  </div>
+                  <ResumeRenderer data={deferredResumeData!} />
                 </div>
-              )}
+
+                {/* A4 分页指示线 - 仅预览时显示，打印时隐藏 */}
+                {contentOverflow > 100 && (
+                  <div
+                    className="absolute left-0 right-0 pointer-events-none print:hidden"
+                    style={{ top: '297mm' }}
+                  >
+                    <div className="border-t-2 border-dashed border-red-400 relative">
+                      <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap">
+                        A4 页面底部 - 以下内容将在第2页
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

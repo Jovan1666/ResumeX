@@ -45,15 +45,29 @@ log(`✓ Node.js v${nodeVersion}`);
 
 // 2. 查找界面目录
 const baseDir = __dirname;
-const uiDir = fs.readdirSync(baseDir).find(d => {
-  const fullPath = path.join(baseDir, d);
-  if (!fs.statSync(fullPath).isDirectory()) return false;
-  return fs.existsSync(path.join(fullPath, 'package.json')) &&
-         fs.existsSync(path.join(fullPath, 'src'));
-});
+log(`  工作目录：${baseDir}`);
+
+let uiDir;
+try {
+  uiDir = fs.readdirSync(baseDir).find(d => {
+    const fullPath = path.join(baseDir, d);
+    try {
+      if (!fs.statSync(fullPath).isDirectory()) return false;
+      return fs.existsSync(path.join(fullPath, 'package.json')) &&
+             fs.existsSync(path.join(fullPath, 'src'));
+    } catch {
+      return false;
+    }
+  });
+} catch (err) {
+  logError(`无法读取目录 ${baseDir}：${err.message}`);
+  logError('如果路径含中文，请尝试将项目移到纯英文路径下（如 D:\\ResumeX）');
+  process.exit(1);
+}
 
 if (!uiDir) {
-  logError('未找到项目目录，请确认文件完整');
+  logError('未找到项目目录（需包含 package.json 和 src 文件夹），请确认文件完整');
+  log('  提示：请确认解压后的目录结构中包含 "界面" 文件夹');
   process.exit(1);
 }
 
