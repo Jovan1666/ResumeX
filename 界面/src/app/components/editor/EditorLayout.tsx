@@ -47,6 +47,7 @@ export const EditorLayout: React.FC = () => {
   const printRef = useRef<HTMLDivElement>(null);
   const zoomContainerRef = useRef<HTMLDivElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const isExportingRef = useRef(false); // ref 防连击（比 state 更可靠，无闭包过期问题）
 
   // 导出用字体 CSS：映射到系统本地字体，零网络请求，导出秒出
   const LOCAL_FONT_CSS = `
@@ -58,7 +59,8 @@ export const EditorLayout: React.FC = () => {
 
   // PDF 导出 - 使用 html-to-image + jspdf 直接生成文件下载
   const handleExportPdf = useCallback(async () => {
-    if (!printRef.current || !resumeData) return;
+    if (!printRef.current || !resumeData || isExportingRef.current) return;
+    isExportingRef.current = true;
     setIsExporting(true);
     try {
       const { toCanvas } = await import('html-to-image');
@@ -115,6 +117,7 @@ export const EditorLayout: React.FC = () => {
       console.error('PDF export failed:', error);
       showToast('error', 'PDF 导出失败，请重试');
     } finally {
+      isExportingRef.current = false;
       setIsExporting(false);
     }
   }, [resumeData, showToast]);
@@ -236,7 +239,8 @@ export const EditorLayout: React.FC = () => {
   // 导出 Word
   const handleExportDocx = async () => {
     if (!validateBeforeExport()) return;
-    if (!resumeData) return;
+    if (!resumeData || isExportingRef.current) return;
+    isExportingRef.current = true;
     setIsExporting(true);
     setShowExportMenu(false);
     try {
@@ -246,6 +250,7 @@ export const EditorLayout: React.FC = () => {
       console.error('Word export failed:', error);
       showToast('error', 'Word 导出失败');
     } finally {
+      isExportingRef.current = false;
       setIsExporting(false);
     }
   };
@@ -253,7 +258,8 @@ export const EditorLayout: React.FC = () => {
   // 导出PNG - 使用 html2canvas 实现真正的截图导出
   const handleExportPng = async () => {
     if (!validateBeforeExport()) return;
-    if (!printRef.current) return;
+    if (!printRef.current || isExportingRef.current) return;
+    isExportingRef.current = true;
     setIsExporting(true);
     setShowExportMenu(false);
 
@@ -294,6 +300,7 @@ export const EditorLayout: React.FC = () => {
       console.error('PNG export failed:', error);
       showToast('error', '导出失败，请重试');
     } finally {
+      isExportingRef.current = false;
       setIsExporting(false);
     }
   };
@@ -375,19 +382,40 @@ export const EditorLayout: React.FC = () => {
     }
 
     // 收集当前值
-    let { fontSizeScale, lineHeight, pageMargin } = store.resumes[store.activeResumeId].settings;
+    const currentSettings = store.resumes[store.activeResumeId].settings;
+    let { fontSizeScale, lineHeight, pageMargin } = currentSettings;
 
     // 构建优化步骤队列（视觉影响从小到大）
     type Step = { label: string; apply: () => void };
     const steps: Step[] = [];
 
     // 1. 页边距压缩（影响最小）
-    if (pageMargin === 'relaxed') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'standard' }) });
-    if (pageMargin !== 'compact') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'compact' }) });
+    if (pageMargin === 'custom') {
+      // 自定义页边距：逐步减小，每步 2mm，到 compact 等效值后切换预设
+      const curMargin = currentSettings.customPageMargin ?? 20;
+      for (let m = curMargin - 2; m >= 16; m -= 2) {
+        const target = m;
+        steps.push({ label: '页边距', apply: () => store.updateSettings({ customPageMargin: target }) });
+      }
+      steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'compact' }) });
+    } else {
+      if (pageMargin === 'relaxed') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'standard' }) });
+      if (pageMargin !== 'compact') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'compact' }) });
+    }
 
     // 2. 行间距压缩
-    if (lineHeight === 'relaxed') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'standard' }) });
-    if (lineHeight !== 'compact') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'compact' }) });
+    if (lineHeight === 'custom') {
+      // 自定义行间距：逐步减小，每步 0.1，到 compact 等效值后切换预设
+      const curLH = currentSettings.customLineHeight ?? 1.5;
+      for (let lh = curLH - 0.1; lh >= 1.4; lh -= 0.1) {
+        const target = Math.round(lh * 100) / 100;
+        steps.push({ label: '行间距', apply: () => store.updateSettings({ customLineHeight: target }) });
+      }
+      steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'compact' }) });
+    } else {
+      if (lineHeight === 'relaxed') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'standard' }) });
+      if (lineHeight !== 'compact') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'compact' }) });
+    }
 
     // 3. 字体逐步缩小（每次 -0.02，最低到 0.80）
     const fontMin = 0.80;
