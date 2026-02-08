@@ -56,6 +56,11 @@ git clone https://github.com/Jovan1666/ResumeX.git
 3. 首次运行会自动安装依赖（约 1-3 分钟），完成后浏览器会自动打开
 
 > 以后每次使用只需双击启动脚本即可，无需重复安装。
+>
+> ⚡ **如果安装依赖很慢**（国内网络），先在命令行执行一次以下命令切换镜像源，以后所有 npm 操作都会加速：
+> ```bash
+> npm config set registry https://registry.npmmirror.com
+> ```
 
 **方式 B：手动启动（熟悉命令行的用户）**
 
@@ -108,7 +113,7 @@ npm run dev    # 启动开发服务器
 │   ├── app/
 │   │   ├── components/
 │   │   │   ├── editor/       # 编辑器核心组件
-│   │   │   ├── templates/    # 25+ 简历模板组件
+│   │   │   ├── templates/    # 35+ 简历模板组件
 │   │   │   ├── dashboard/    # 仪表盘（简历管理）
 │   │   │   ├── landing/      # 落地页
 │   │   │   └── ui/           # 通用 UI 组件
