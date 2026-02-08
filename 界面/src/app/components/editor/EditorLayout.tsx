@@ -378,6 +378,7 @@ export const EditorLayout: React.FC = () => {
     if (!resumeData || !printRef.current || isFitting) return;
     setIsFitting(true);
 
+    try {
     const A4_HEIGHT_PX = 297 * 3.78; // ~1122px
     const store = useResumeStore.getState();
     const waitForLayout = () => new Promise<void>(r => setTimeout(r, 80));
@@ -386,7 +387,6 @@ export const EditorLayout: React.FC = () => {
     let h = printRef.current.scrollHeight;
     if (h <= A4_HEIGHT_PX) {
       showToast('success', '当前内容已在一页内');
-      setIsFitting(false);
       return;
     }
 
@@ -458,7 +458,9 @@ export const EditorLayout: React.FC = () => {
     } else {
       showToast('warning', '排版已最大程度压缩，建议精简部分内容后重试');
     }
-    setIsFitting(false);
+    } finally {
+      setIsFitting(false);
+    }
   }, [resumeData, showToast, isFitting]);
 
   // 导出前确认弹窗 (状态声明已移到组件顶部)
