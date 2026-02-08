@@ -131,7 +131,7 @@ export const Dashboard: React.FC = () => {
     const result = await importBackup(file);
     if (result.success) {
       showToast('success', result.message);
-      setTimeout(() => window.location.reload(), 1000);
+      // importBackup 内部已安排 500ms 后自动刷新，无需重复 reload
     } else {
       showToast('error', result.message);
     }
@@ -146,7 +146,7 @@ export const Dashboard: React.FC = () => {
     const result = clearAllData();
     if (result.success) {
       showToast('success', result.message);
-      setTimeout(() => window.location.reload(), 1000);
+      // clearAllData 内部已安排 500ms 后自动刷新，无需重复 reload
     } else {
       showToast('error', result.message);
     }
@@ -271,7 +271,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <div 
                         className="w-3 h-3 rounded-full border border-gray-200" 
-                        style={{ backgroundColor: themes[resume.settings.themeColor].colors.primary }}
+                        style={{ backgroundColor: (themes[resume.settings.themeColor] || themes['tech-orange']).colors.primary }}
                         title="主题色"
                       ></div>
                     </div>
