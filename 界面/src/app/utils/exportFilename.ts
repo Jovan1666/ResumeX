@@ -1,4 +1,4 @@
-import { ResumeData } from '@/app/types/resume';
+import type { ResumeData } from '@/app/types/resume';
 
 /**
  * 生成规范化的导出文件名
@@ -9,13 +9,15 @@ export function generateExportFilename(
   data: ResumeData,
   format: 'pdf' | 'png' | 'docx'
 ): string {
-  const name = data.profile.name?.trim() || '简历';
-  const title = data.profile.title?.trim();
+  const sanitize = (value: string) => value.replace(/[\\/:*?"<>|]/g, '').trim();
+
+  const name = sanitize(data.profile.name?.trim() || '') || '简历';
+  const title = sanitize(data.profile.title?.trim() || '');
 
   const parts = [name];
   if (title) {
     // 清理特殊字符，避免文件名非法
-    parts.push(title.replace(/[\\/:*?"<>|]/g, ''));
+    parts.push(title);
   }
   parts.push('简历');
 
