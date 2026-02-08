@@ -71,14 +71,14 @@ export const EditorLayout: React.FC = () => {
     if (!printRef.current || !resumeData || isExportingRef.current) return;
     isExportingRef.current = true;
     setIsExporting(true);
+    const zoomEl = zoomContainerRef.current;
+    const origZoom = zoomEl?.style.transform || '';
     try {
       const { toCanvas } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
       const element = printRef.current;
 
       // 临时重置父级 zoom 容器的 transform（截图需要原始 1:1 尺寸）
-      const zoomEl = zoomContainerRef.current;
-      const origZoom = zoomEl?.style.transform || '';
       if (zoomEl) zoomEl.style.transform = 'scale(1)';
 
       const canvas = await toCanvas(element, {
@@ -126,6 +126,7 @@ export const EditorLayout: React.FC = () => {
       console.error('PDF export failed:', error);
       showToast('error', 'PDF 导出失败，请重试');
     } finally {
+      if (zoomEl) zoomEl.style.transform = origZoom;
       isExportingRef.current = false;
       setIsExporting(false);
     }
@@ -172,6 +173,7 @@ export const EditorLayout: React.FC = () => {
     const handleClickOutside = (e: MouseEvent) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
         setShowExportMenu(false);
+        setShowMobileMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -271,14 +273,14 @@ export const EditorLayout: React.FC = () => {
     isExportingRef.current = true;
     setIsExporting(true);
     setShowExportMenu(false);
+    const zoomEl = zoomContainerRef.current;
+    const origZoom = zoomEl?.style.transform || '';
 
     try {
       const { toBlob } = await import('html-to-image');
       const element = printRef.current;
 
       // 临时重置父级 zoom 容器的 transform
-      const zoomEl = zoomContainerRef.current;
-      const origZoom = zoomEl?.style.transform || '';
       if (zoomEl) zoomEl.style.transform = 'scale(1)';
 
       const blob = await toBlob(element, {
@@ -309,6 +311,7 @@ export const EditorLayout: React.FC = () => {
       console.error('PNG export failed:', error);
       showToast('error', '导出失败，请重试');
     } finally {
+      if (zoomEl) zoomEl.style.transform = origZoom;
       isExportingRef.current = false;
       setIsExporting(false);
     }
