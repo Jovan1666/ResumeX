@@ -1,0 +1,44 @@
+{
+  "name": "resumex",
+  "version": "1.0.0",
+  "description": "ResumeX - 免费专业简历制作工具",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "build:setup": "node build-setup.js"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.resumex.app",
+    "productName": "ResumeX",
+    "copyright": "Copyright © 2025 ResumeX",
+    "directories": {
+      "output": "release/installer"
+    },
+    "files": [
+      "electron/**/*",
+      "webapp/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ResumeX",
+      "installerLanguages": ["zh_CN", "en_US"],
+      "language": "2052"
+    }
+  }
+}

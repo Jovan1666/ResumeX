@@ -45,6 +45,10 @@ docs/
 # Orphaned lock file (no root package.json)
 /package-lock.json
 
+# Release build output
+release/
+webapp/
+
 # Figma Make generated files (boilerplate, not project content)
 界面/guidelines/
 界面/README.md

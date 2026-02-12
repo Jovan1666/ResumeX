@@ -1,7 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { AlertCircle, Check } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 import { ValidationRule, validateField } from '@/app/hooks/useFormValidation';
+
+const DEFAULT_DEBOUNCE = 300;
 
 interface ValidatedInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -9,6 +11,8 @@ interface ValidatedInputProps extends React.InputHTMLAttributes<HTMLInputElement
   rules?: ValidationRule;
   fieldLabel?: string;
   showSuccessIcon?: boolean;
+  /** 防抖延迟 (ms)，0 表示不防抖。默认 300ms，避免每次击键都写 store 触发预览重渲染 */
+  debounceMs?: number;
 }
 
 export const ValidatedInput: React.FC<ValidatedInputProps> = ({
@@ -17,6 +21,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
   rules,
   fieldLabel,
   showSuccessIcon = true,
+  debounceMs = DEFAULT_DEBOUNCE,
   className,
   onChange,
   onBlur,
@@ -25,6 +30,21 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
 }) => {
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+
+  // 防抖：本地 state 即时响应输入，延迟写入外部 store
+  const [localValue, setLocalValue] = useState(String(value ?? ''));
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const isTypingRef = useRef(false);
+
+  // 外部值变化时同步（undo/redo、外部重置）
+  useEffect(() => {
+    const externalStr = String(value ?? '');
+    if (isTypingRef.current) {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
+      isTypingRef.current = false;
+    }
+    setLocalValue(externalStr);
+  }, [value]);
 
   const combinedRules: ValidationRule = {
     required,
@@ -38,20 +58,39 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
   }, [combinedRules, fieldLabel, label]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange?.(e);
-    if (touched) {
-      validate(e.target.value);
+    const newVal = e.target.value;
+    setLocalValue(newVal);
+    if (touched) validate(newVal);
+
+    if (debounceMs > 0) {
+      isTypingRef.current = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        onChange?.(e);
+        isTypingRef.current = false;
+      }, debounceMs);
+    } else {
+      onChange?.(e);
     }
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // 失焦时立即提交，防止丢失内容
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
+    if (isTypingRef.current && localValue !== String(value ?? '')) {
+      onChange?.(e);
+      isTypingRef.current = false;
+    }
     setTouched(true);
     validate(e.target.value);
     onBlur?.(e);
   };
 
+  // 组件卸载时清理定时器
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
   const showError = touched && error;
-  const showSuccess = touched && !error && value;
+  const showSuccess = touched && !error && localValue;
 
   // 生成唯一ID用于关联label和input
   const inputId = props.id || `input-${label?.replace(/\s/g, '-').toLowerCase()}`;
@@ -80,7 +119,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
                 : "border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500",
             className
           )}
-          value={value}
+          value={localValue}
           onChange={handleChange}
           onBlur={handleBlur}
           aria-required={required}
@@ -119,6 +158,7 @@ interface ValidatedTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAr
   rules?: ValidationRule;
   fieldLabel?: string;
   showCount?: boolean;
+  debounceMs?: number;
 }
 
 export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
@@ -127,6 +167,7 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
   rules,
   fieldLabel,
   showCount = true,
+  debounceMs = DEFAULT_DEBOUNCE,
   className,
   onChange,
   onBlur,
@@ -136,6 +177,19 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
 }) => {
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+
+  const [localValue, setLocalValue] = useState(String(value ?? ''));
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const isTypingRef = useRef(false);
+
+  useEffect(() => {
+    const externalStr = String(value ?? '');
+    if (isTypingRef.current) {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
+      isTypingRef.current = false;
+    }
+    setLocalValue(externalStr);
+  }, [value]);
 
   const combinedRules: ValidationRule = {
     required,
@@ -150,20 +204,37 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
   }, [combinedRules, fieldLabel, label]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange?.(e);
-    if (touched) {
-      validate(e.target.value);
+    const newVal = e.target.value;
+    setLocalValue(newVal);
+    if (touched) validate(newVal);
+
+    if (debounceMs > 0) {
+      isTypingRef.current = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        onChange?.(e);
+        isTypingRef.current = false;
+      }, debounceMs);
+    } else {
+      onChange?.(e);
     }
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
+    if (isTypingRef.current && localValue !== String(value ?? '')) {
+      onChange?.(e);
+      isTypingRef.current = false;
+    }
     setTouched(true);
     validate(e.target.value);
     onBlur?.(e);
   };
 
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
   const showError = touched && error;
-  const currentLength = String(value || '').length;
+  const currentLength = localValue.length;
 
   // 生成唯一ID
   const textareaId = props.id || `textarea-${label?.replace(/\s/g, '-').toLowerCase()}`;
@@ -191,7 +262,7 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
               : "border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500",
             className
           )}
-          value={value}
+          value={localValue}
           onChange={handleChange}
           onBlur={handleBlur}
           maxLength={maxLength}

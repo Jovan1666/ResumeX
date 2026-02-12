@@ -257,13 +257,16 @@ export async function exportToDocx(data: ResumeData): Promise<void> {
   try {
     const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = generateExportFilename(data, 'docx');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = generateExportFilename(data, 'docx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   } catch (error) {
     console.error('Word文档生成失败:', error);
     throw new Error('Word文档导出失败，请重试');

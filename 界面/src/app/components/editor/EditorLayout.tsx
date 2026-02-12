@@ -30,6 +30,9 @@ export const EditorLayout: React.FC = () => {
   const redo = useResumeStore(state => state.redo);
   const pushHistory = useResumeStore(state => state.pushHistory);
   const { showToast } = useToast();
+
+  // 使用 useDeferredValue 延迟预览更新，避免每次按键都阻塞渲染
+  const deferredResumeData = useDeferredValue(resumeData);
   
   const [zoom, setZoom] = useState(0.75);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
@@ -133,6 +136,7 @@ export const EditorLayout: React.FC = () => {
   }, [resumeData, showToast]);
 
   // 合并：内容溢出检测 + 自动保存状态 (防抖 300ms，减少频繁触发)
+  // 使用 deferredResumeData 作为依赖，避免每次击键都触发布局重算
   useEffect(() => {
     setIsSaving(true);
     const timer = setTimeout(() => {
@@ -144,7 +148,7 @@ export const EditorLayout: React.FC = () => {
       setIsSaving(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [resumeData]);
+  }, [deferredResumeData]);
 
   // 读取 URL 参数，支持从落地页跳转时自动弹出模板选择（仅首次挂载执行）
   const [searchParams, setSearchParams] = useSearchParams();
@@ -237,13 +241,13 @@ export const EditorLayout: React.FC = () => {
   // 在关键编辑操作前记录历史快照（防抖）
   const pushHistoryRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
-    if (!resumeData) return;
+    if (!deferredResumeData) return;
     if (pushHistoryRef.current) clearTimeout(pushHistoryRef.current);
     pushHistoryRef.current = setTimeout(() => {
       pushHistory();
     }, 1000);
     return () => { if (pushHistoryRef.current) clearTimeout(pushHistoryRef.current); };
-  }, [resumeData, pushHistory]);
+  }, [deferredResumeData, pushHistory]);
 
   // (handleExportPdf 已包含验证逻辑)
 
@@ -322,10 +326,7 @@ export const EditorLayout: React.FC = () => {
     localStorage.setItem('hasOnboarded', 'true');
   };
 
-  // 使用 useDeferredValue 延迟计算，避免每次按键都阻塞渲染
-  const deferredResumeData = useDeferredValue(resumeData);
-
-  // 计算完整性检查清单计数（轻量版，给 badge 用）
+  // 计算完整性检查清单计数
   const checklistCounts = useMemo(() => {
     if (!deferredResumeData) return { completed: 0, total: 0, requiredAllPassed: false };
 
@@ -809,7 +810,7 @@ export const EditorLayout: React.FC = () => {
               <div
                 ref={zoomContainerRef}
                 className="absolute top-0 left-0 origin-top-left"
-                style={{ transform: `scale(${zoom})` }}
+                style={{ transform: `scale(${zoom})`, willChange: 'transform' }}
               >
                 {/* 简历纸张 */}
                 <div 

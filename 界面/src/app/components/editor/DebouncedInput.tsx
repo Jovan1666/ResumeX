@@ -21,6 +21,14 @@ export const DebouncedInput = memo<DebouncedInputProps>(({
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const isTypingRef = useRef(false);
 
+  // 用于 cleanup 闭包中读取最新值（避免 stale closure）
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const localValueRef = useRef(localValue);
+  localValueRef.current = localValue;
+  const externalValueRef = useRef(externalValue);
+  externalValueRef.current = externalValue;
+
   // 外部值变化时同步（非用户输入导致的变化，如 undo/redo）
   // 关键：即使正在输入，如果外部值变化（undo/redo），也要清除 pending 的 debounce
   // 否则 debounce 回调会将旧的本地值覆盖回 store，导致 undo 被吞掉
@@ -62,7 +70,13 @@ export const DebouncedInput = memo<DebouncedInputProps>(({
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        // 组件卸载时提交未保存的值，防止数据丢失
+        if (localValueRef.current !== externalValueRef.current) {
+          onChangeRef.current(localValueRef.current);
+        }
+      }
     };
   }, []);
 
@@ -95,6 +109,14 @@ export const DebouncedTextarea = memo<DebouncedTextareaProps>(({
   const [localValue, setLocalValue] = useState(externalValue);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const isTypingRef = useRef(false);
+
+  // 用于 cleanup 闭包中读取最新值
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const localValueRef = useRef(localValue);
+  localValueRef.current = localValue;
+  const externalValueRef = useRef(externalValue);
+  externalValueRef.current = externalValue;
 
   useEffect(() => {
     if (isTypingRef.current) {
@@ -132,7 +154,13 @@ export const DebouncedTextarea = memo<DebouncedTextareaProps>(({
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        // 组件卸载时提交未保存的值
+        if (localValueRef.current !== externalValueRef.current) {
+          onChangeRef.current(localValueRef.current);
+        }
+      }
     };
   }, []);
 
