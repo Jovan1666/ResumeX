@@ -97,8 +97,9 @@ export const importBackup = (file: File): Promise<{ success: boolean; message: s
           return;
         }
 
-        // 保存到 localStorage
-        localStorage.setItem(STORAGE_KEY, content);
+        // 保存到 localStorage（使用校验后的 data 而非原始 content，
+        // 因为 validateBackupData 可能修复了 activeResumeId 等字段）
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         
         // 自动刷新页面以确保 Zustand store 与 localStorage 同步
         resolve({ success: true, message: '数据恢复成功，页面即将刷新' });

@@ -319,41 +319,39 @@ export const ModuleItem = memo(({ module, expanded, onExpand }: ModuleItemProps)
                               delay={250}
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <DebouncedInput 
-                              className="w-full p-1.5 bg-white border border-gray-300 rounded text-sm focus:border-blue-500 outline-none" 
-                              placeholder={module.type === 'education' ? '学校名称' : '公司名称'}
-                              value={resumeItem.subtitle}
-                              onChange={(val) => updateModuleItem(module.id, item.id, 'subtitle', val)}
-                              delay={250}
+                          <DebouncedInput 
+                            className="w-full p-1.5 bg-white border border-gray-300 rounded text-sm focus:border-blue-500 outline-none" 
+                            placeholder={module.type === 'education' ? '学校名称' : '公司名称'}
+                            value={resumeItem.subtitle}
+                            onChange={(val) => updateModuleItem(module.id, item.id, 'subtitle', val)}
+                            delay={250}
+                          />
+                          <div className="flex gap-1 items-center">
+                            <DatePicker
+                              value={resumeItem.startDate || (resumeItem.date ? resumeItem.date.split(' - ')[0] : '') || ''}
+                              onChange={(v) => {
+                                const endDate = resumeItem.endDate || (resumeItem.date ? resumeItem.date.split(' - ')[1] : '') || '';
+                                const newDate = endDate ? `${v} - ${endDate}` : v;
+                                updateModuleItem(module.id, item.id, 'date', newDate);
+                                updateModuleItem(module.id, item.id, 'startDate', v);
+                              }}
+                              placeholder="开始时间"
+                              allowPresent={false}
+                              className="flex-1 min-w-0"
                             />
-                            <div className="flex gap-1">
-                              <DatePicker
-                                value={resumeItem.startDate || (resumeItem.date ? resumeItem.date.split(' - ')[0] : '') || ''}
-                                onChange={(v) => {
-                                  const endDate = resumeItem.endDate || (resumeItem.date ? resumeItem.date.split(' - ')[1] : '') || '';
-                                  const newDate = endDate ? `${v} - ${endDate}` : v;
-                                  updateModuleItem(module.id, item.id, 'date', newDate);
-                                  updateModuleItem(module.id, item.id, 'startDate', v);
-                                }}
-                                placeholder="开始"
-                                allowPresent={false}
-                                className="flex-1"
-                              />
-                              <span className="self-center text-gray-400 text-xs">-</span>
-                              <DatePicker
-                                value={resumeItem.endDate || (resumeItem.date ? resumeItem.date.split(' - ')[1] : '') || ''}
-                                onChange={(v) => {
-                                  const startDate = resumeItem.startDate || (resumeItem.date ? resumeItem.date.split(' - ')[0] : '') || '';
-                                  const newDate = startDate ? `${startDate} - ${v}` : v;
-                                  updateModuleItem(module.id, item.id, 'date', newDate);
-                                  updateModuleItem(module.id, item.id, 'endDate', v);
-                                }}
-                                placeholder="结束"
-                                allowPresent={true}
-                                className="flex-1"
-                              />
-                            </div>
+                            <span className="text-gray-400 text-xs flex-shrink-0">-</span>
+                            <DatePicker
+                              value={resumeItem.endDate || (resumeItem.date ? resumeItem.date.split(' - ')[1] : '') || ''}
+                              onChange={(v) => {
+                                const startDate = resumeItem.startDate || (resumeItem.date ? resumeItem.date.split(' - ')[0] : '') || '';
+                                const newDate = startDate ? `${startDate} - ${v}` : v;
+                                updateModuleItem(module.id, item.id, 'date', newDate);
+                                updateModuleItem(module.id, item.id, 'endDate', v);
+                              }}
+                              placeholder="结束时间"
+                              allowPresent={true}
+                              className="flex-1 min-w-0"
+                            />
                           </div>
                           <DebouncedInput 
                             className="w-full p-1.5 bg-white border border-gray-300 rounded text-sm focus:border-blue-500 outline-none" 
