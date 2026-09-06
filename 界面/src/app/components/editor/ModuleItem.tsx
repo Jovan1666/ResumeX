@@ -259,6 +259,61 @@ export const ModuleItem = memo(({ module, expanded, onExpand }: ModuleItemProps)
               onChange={(val) => updateModule(module.id, { title: val })}
               delay={300}
             />
+            {/* 模块排版设置：标题样式 / 项目符号 / 列数 */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="text-xs text-gray-400">标题样式</label>
+              <div className="flex gap-1">
+                {(['line', 'bar', 'plain'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => updateModule(module.id, { titleStyle: s })}
+                    className={cn(
+                      "px-2 py-1 rounded text-xs border transition-colors",
+                      (module.titleStyle || 'line') === s ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    )}
+                    title={s === 'line' ? '下划线' : s === 'bar' ? '左侧色条' : '纯加粗'}
+                  >
+                    {s === 'line' ? '下划线' : s === 'bar' ? '色条' : '无装饰'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="text-xs text-gray-400">项目符号</label>
+              <div className="flex gap-1">
+                {(['dot', 'dash', 'none'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => updateModule(module.id, { bulletStyle: s })}
+                    className={cn(
+                      "px-2 py-1 rounded text-xs border transition-colors",
+                      (module.bulletStyle || 'dot') === s ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    )}
+                  >
+                    {s === 'dot' ? '圆点 •' : s === 'dash' ? '短横线 —' : '无'}
+                  </button>
+                ))}
+              </div>
+              {(module.type === 'education' || module.type === 'skills' || module.type === 'honors') && (
+                <>
+                  <label className="text-xs text-gray-400 ml-2">列数</label>
+                  <div className="flex gap-1">
+                    {([1, 2] as const).map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => updateModule(module.id, { columns: c })}
+                        className={cn(
+                          "px-2 py-1 rounded text-xs border transition-colors",
+                          (module.columns || 1) === c ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                        )}
+                      >
+                        {c} 列
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3">

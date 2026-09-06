@@ -124,4 +124,19 @@ export interface GlobalSettings {
   customLineHeight?: number;  // 自定义行高值，范围 1.0 ~ 2.0
   customPageMargin?: number;  // 自定义左右页边距，单位 mm，范围 10 ~ 30
   language: 'zh' | 'en';
+
+  /** 模块上下间距（mm，全局；默认 6mm —— 对应「模块间距」滑杆） */
+  moduleGap?: number;
+  /** 打码模式：分享/预览时隐藏姓名、手机、邮箱、微信（仅渲染层，不动数据） */
+  privacyBlur?: boolean;
+  /** 照片位置：右上（默认）/ 顶部居中 / 左栏顶（双栏模板） */
+  photoPosition?: 'right' | 'top' | 'sidebar';
+  /** 照片形状：矩形（默认）/ 圆角 */
+  photoShape?: 'rect' | 'rounded';
+  /** 照片尺寸：小 / 中（证件照 22×30.8mm 默认） / 大（一寸 25×35mm） */
+  photoSize?: 'sm' | 'md' | 'lg';
+  /** 双栏模板：左栏宽度（%） */
+  splitWidth?: 25 | 30 | 35;
+  /** 双栏模板：左栏底色 */
+  splitColor?: '#FAFAFA' | '#EFF4FB' | '#FFFFFF';
 }

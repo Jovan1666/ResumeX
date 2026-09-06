@@ -153,7 +153,7 @@ function migrateResumeData(r: Record<string, unknown>): Record<string, unknown> 
   if (!Array.isArray(profile.customFields)) profile.customFields = [];
   out.profile = profile;
 
-  // 模块 items 补齐
+  // 模块 items 补齐 + 新字段默认值（titleStyle/bulletStyle/columns/titleOverride 均可选）
   if (Array.isArray(out.modules)) {
     out.modules = (out.modules as Record<string, unknown>[]).map((m) => ({
       ...m,
@@ -162,6 +162,17 @@ function migrateResumeData(r: Record<string, unknown>): Record<string, unknown> 
   } else {
     out.modules = [];
   }
+
+  // 全局设置新字段默认值
+  const st = (out.settings ?? {}) as Record<string, unknown>;
+  if (typeof st.moduleGap !== 'number') st.moduleGap = 6;
+  if (typeof st.privacyBlur !== 'boolean') st.privacyBlur = false;
+  if (!st.photoPosition) st.photoPosition = 'right';
+  if (!st.photoShape) st.photoShape = 'rect';
+  if (!st.photoSize) st.photoSize = 'md';
+  if (st.splitWidth !== 25 && st.splitWidth !== 30 && st.splitWidth !== 35) st.splitWidth = 25;
+  if (!st.splitColor) st.splitColor = '#FAFAFA';
+  out.settings = st;
 
   // 照片：> 20KB 的旧 dataURL 丢弃（避免撑爆存储并提示重新上传）
   const av = profile.avatar as string | undefined;

@@ -10,35 +10,48 @@ import { ExperienceItem, SkillGroups } from './_primitives/ExperienceItem';
  * 公务员/事业单位（02 §5.2）。
  */
 export const CivilFileTemplate: React.FC<{ data: ResumeData }> = memo(({ data }) => {
-  const { profile, modules } = data;
+  const { profile, modules, settings } = data;
   const visibleModules = modules.filter((m) => m.visible && m.items.length > 0);
+  const gap = settings.moduleGap ?? 6;
 
   return (
     <ResumeChrome data={data}>
       <SingleColumnLayout data={data}>
-        <HeaderBlock profile={profile} showPhoto="right" showFormalFields nameSizePt={17} separator="|" />
+        <HeaderBlock
+          profile={profile}
+          showPhoto="right"
+          showFormalFields
+          nameSizePt={17}
+          separator="|"
+          privacyBlur={settings.privacyBlur}
+          photoShape={settings.photoShape}
+          photoSize={settings.photoSize}
+        />
 
         {profile.summary && (
-          <div className="rx-section mb-3">
+          <div className="rx-section" style={{ marginBottom: `${gap}mm` }}>
             <SectionTitle title="自我评价" variant="bar" colorVar="#1A1A1A" />
             <p style={{ fontSize: '10pt', color: '#333', lineHeight: 1.4 }}>{profile.summary}</p>
           </div>
         )}
 
-        {visibleModules.map((module) => (
-          <div key={module.id} className="rx-section mb-3">
-            <SectionTitle title={module.title} variant="bar" colorVar="#1A1A1A" />
-            {isSkillsModule(module) ? (
-              <SkillGroups items={module.items as { id: string; name: string; group?: string }[]} separator="，" />
-            ) : (
-              <div className="space-y-2">
-                {(module.items as ResumeItem[]).map((item) => (
-                  <ExperienceItem key={item.id} item={item} showLocation={false} />
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+        {visibleModules.map((module) => {
+          const heading = module.titleOverride || module.title;
+          return (
+            <div key={module.id} className="rx-section" style={{ marginBottom: `${gap}mm` }}>
+              <SectionTitle title={heading} variant="bar" colorVar="#1A1A1A" />
+              {isSkillsModule(module) ? (
+                <SkillGroups items={module.items as { id: string; name: string; group?: string }[]} separator="，" columns={module.columns} />
+              ) : (
+                <div className={module.columns === 2 ? 'grid grid-cols-2 gap-x-6 gap-y-2' : 'space-y-2'}>
+                  {(module.items as ResumeItem[]).map((item) => (
+                    <ExperienceItem key={item.id} item={item} showLocation={false} bulletStyle={module.bulletStyle || 'dot'} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* 自定义字段（政治面貌/籍贯 已在头部显示；此处防遗漏） */}
         {profile.customFields && profile.customFields.filter(f => f.label && f.value).length > 0 && (

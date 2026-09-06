@@ -11,11 +11,15 @@ import { useAvatarObjectUrl } from '@/app/hooks/useAvatarObjectUrl';
  * 网申解析较差（R5）→ 默认列表藏「更多」。
  */
 export const CompactSplitTemplate: React.FC<{ data: ResumeData }> = memo(({ data }) => {
-  const { profile, modules } = data;
+  const { profile, modules, settings } = data;
   const visibleModules = modules.filter((m) => m.visible && m.items.length > 0);
   const avatarUrl = useAvatarObjectUrl(profile.avatar || '');
+  const splitWidth = settings.splitWidth || 25;
+  const splitColor = settings.splitColor || '#FAFAFA';
+  const gap = settings.moduleGap ?? 6;
+  const mask = (v: string) => (settings.privacyBlur && v ? '***' : v);
 
-  // 左栏：联系方式 + 技能 + 自我评价；右栏：经历（自动过滤已放左栏的内容：不按类型分，直接去除 skills 和 summary）
+  // 左栏：联系方式 + 技能 + 自我评价；右栏：经历（去除 skills 和 summary）
   const leftModules = visibleModules.filter((m) => m.type === 'skills');
   const rightModules = visibleModules.filter((m) => m.type !== 'skills');
 
@@ -23,12 +27,12 @@ export const CompactSplitTemplate: React.FC<{ data: ResumeData }> = memo(({ data
     <ResumeChrome data={data}>
       {/* 外层 padding 0，双栏满出血 */}
       <div className="flex w-full min-h-[297mm]" style={{ width: '210mm' }}>
-        {/* 左栏 ≤25% 浅底，色条贴纸边（V1 审查：不取满屏深色块，用浅色底+左缘细色条） */}
+        {/* 左栏：宽度/底色可调（默认 25% 浅底），色条贴纸边 */}
         <div
           className="rx-left-column flex-shrink-0 flex flex-col relative"
           style={{
-            width: '25%',
-            backgroundColor: '#FAFAFA',
+            width: `${splitWidth}%`,
+            backgroundColor: splitColor,
             padding: 'var(--rx-page-padding, 16mm) 5mm',
           }}
         >
@@ -42,12 +46,12 @@ export const CompactSplitTemplate: React.FC<{ data: ResumeData }> = memo(({ data
               src={avatarUrl}
               alt="证件照"
               className="mb-3 mx-auto"
-              style={{ width: '24mm', height: '33.6mm', objectFit: 'cover', borderRadius: '1px' }}
+              style={{ width: '24mm', height: '33.6mm', objectFit: 'cover', borderRadius: settings.photoShape === 'rounded' ? '3px' : '1px' }}
             />
           )}
           {/* 姓名/意向 */}
           <h1 style={{ fontSize: '16pt', fontWeight: 700, color: '#111', textAlign: 'center' }}>
-            {profile.name || '姓名'}
+            {settings.privacyBlur && profile.name ? '（已隐藏）' : (profile.name || '姓名')}
           </h1>
           {profile.title && (
             <p style={{ fontSize: '10pt', color: '#444', textAlign: 'center', marginTop: '1.5mm' }}>
@@ -60,10 +64,10 @@ export const CompactSplitTemplate: React.FC<{ data: ResumeData }> = memo(({ data
             <div className="mt-4 rx-section">
               <SectionTitle title="联系方式" variant="bar" colorVar="#B85858" sizePt={11.5} />
               <div style={{ fontSize: '9pt', color: '#333', lineHeight: 1.6 }}>
-                {profile.phone && <p>电话：{profile.phone}</p>}
-                {profile.email && <p>邮箱：{profile.email}</p>}
+                {profile.phone && <p>电话：{mask(profile.phone)}</p>}
+                {profile.email && <p>邮箱：{mask(profile.email)}</p>}
                 {profile.location && <p>城市：{profile.location}</p>}
-                {profile.wechat && <p>微信：{profile.wechat}</p>}
+                {profile.wechat && <p>微信：{mask(profile.wechat)}</p>}
               </div>
             </div>
           )}
@@ -77,24 +81,27 @@ export const CompactSplitTemplate: React.FC<{ data: ResumeData }> = memo(({ data
 
           {leftModules.map((module) => (
             <div key={module.id} className="mt-4 rx-section">
-              <SectionTitle title={module.title} variant="bar" colorVar="#B85858" sizePt={11.5} />
-              <SkillGroups items={module.items as { id: string; name: string; group?: string }[]} compact />
+              <SectionTitle title={module.titleOverride || module.title} variant="bar" colorVar="#B85858" sizePt={11.5} />
+              <SkillGroups items={module.items as { id: string; name: string; group?: string }[]} compact columns={module.columns} />
             </div>
           ))}
         </div>
 
         {/* 右栏：主经历，白底（色条已由左栏左缘承担，保持克制） */}
         <div className="flex-1 relative" style={{ padding: 'var(--rx-page-padding, 16mm) 8mm' }}>
-          {rightModules.map((module) => (
-            <div key={module.id} className="rx-section mb-3">
-              <SectionTitle title={module.title} variant="line" colorVar="#B85858" />
-              <div className="space-y-2">
-                {(module.items as ResumeItem[]).map((item) => (
-                  <ExperienceItem key={item.id} item={item} showLocation={false} compact />
-                ))}
+          {rightModules.map((module) => {
+            const heading = module.titleOverride || module.title;
+            return (
+              <div key={module.id} className="rx-section" style={{ marginBottom: `${gap}mm` }}>
+                <SectionTitle title={heading} variant={module.titleStyle === 'bar' ? 'bar' : 'line'} colorVar="#B85858" />
+                <div className={module.columns === 2 ? 'grid grid-cols-2 gap-x-6 gap-y-2' : 'space-y-2'}>
+                  {(module.items as ResumeItem[]).map((item) => (
+                    <ExperienceItem key={item.id} item={item} showLocation={false} compact bulletStyle={module.bulletStyle || 'dot'} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </ResumeChrome>

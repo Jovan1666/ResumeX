@@ -657,7 +657,7 @@ export const EditorLayout: React.FC = () => {
                 </button>
                 
                 {showExportMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50">
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50">
                     <button
                       onClick={() => {
                         handleExportPdfWithConfirm();
@@ -671,6 +671,22 @@ export const EditorLayout: React.FC = () => {
                         <div className="text-xs text-gray-400">高清打印版</div>
                       </div>
                     </button>
+                    {resumeData?.template === 'atsMono' && (
+                      <button
+                        onClick={() => {
+                          handleExportPdfWithConfirm();
+                          setShowExportMenu(false);
+                          showToast('info', '网申版 PDF 文字可选中；Word 版网申更稳');
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700 border-t border-gray-100"
+                      >
+                        <FileText size={16} className="text-green-600" />
+                        <div>
+                          <div className="font-medium">网申版 PDF（推荐）</div>
+                          <div className="text-xs text-gray-400">单栏可解析，文字可选中，网申系统友好</div>
+                        </div>
+                      </button>
+                    )}
                     <button
                       onClick={handleExportPng}
                       className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700 border-t border-gray-100"
@@ -688,7 +704,7 @@ export const EditorLayout: React.FC = () => {
                       <FileType size={16} className="text-purple-600" />
                       <div>
                         <div className="font-medium">导出 Word</div>
-                        <div className="text-xs text-gray-400">纯文本格式，可编辑</div>
+                        <div className="text-xs text-gray-400">纯文本格式，可编辑；网申系统兼容</div>
                       </div>
                     </button>
                   </div>
