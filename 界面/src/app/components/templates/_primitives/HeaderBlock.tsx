@@ -2,9 +2,20 @@ import React from 'react';
 import { ResumeProfile } from '@/app/types/resume';
 import { useAvatarObjectUrl } from '@/app/hooks/useAvatarObjectUrl';
 
+/** 照片尺寸设置 → 实际 mm */
+const PHOTO_SIZES: Record<'sm' | 'md' | 'lg', { w: number; h: number }> = {
+  sm: { w: 20, h: 28 },
+  md: { w: 22, h: 30.8 },
+  lg: { w: 25, h: 35 },
+};
+
 /**
- * HeaderBlock：姓名 / 求职意向 / 联系方式（一行或两行，`·` 分隔，无图标）/ 可选证件照（右上、5:7 矩形）。
- * 主题色只用于姓名点缀；正文近黑。
+ * 头部：姓名 / 求职意向 / 联系方式（`·` 或 `|` 分隔，无图标）/ 可选证件照（右上、5:7 矩形）。
+ * 支持：
+ * - 照片位置（right 右上 / top 顶部居中 / sidebar 左栏顶 —— sidebar 由双栏模板自行处理）
+ * - 照片形状（rect 矩形 / rounded 圆角）
+ * - 照片尺寸（sm/md/lg）
+ * - 打码模式（privacyBlur：隐藏 phone/email/wechat 的展示，不动数据）
  */
 export const HeaderBlock: React.FC<{
   profile: ResumeProfile;
@@ -15,20 +26,31 @@ export const HeaderBlock: React.FC<{
   /** 是否显示政治面貌 / 籍贯（体制内模板） */
   showFormalFields?: boolean;
   nameSizePt?: number;
-}> = ({ profile, showPhoto = 'right', separator = '·', showFormalFields = false, nameSizePt = 18 }) => {
+  /** 打码模式：显示 *** 替代手机/邮箱/微信 */
+  privacyBlur?: boolean;
+  /** 照片形状 */
+  photoShape?: 'rect' | 'rounded';
+  /** 照片尺寸 */
+  photoSize?: 'sm' | 'md' | 'lg';
+}> = ({ profile, showPhoto = 'right', separator = '·', showFormalFields = false, nameSizePt = 18, privacyBlur = false, photoShape = 'rect', photoSize = 'md' }) => {
   const avatarUrl = useAvatarObjectUrl(profile.avatar || '');
+  const mask = (v: string) => (privacyBlur && v ? '***' : v);
 
   const contactParts: React.ReactNode[] = [];
-  if (profile.phone) contactParts.push(<span key="phone">{profile.phone}</span>);
-  if (profile.email) contactParts.push(<span key="email">{profile.email}</span>);
+  if (profile.phone) contactParts.push(<span key="phone">{mask(profile.phone)}</span>);
+  if (profile.email) contactParts.push(<span key="email">{mask(profile.email)}</span>);
   if (profile.location) contactParts.push(<span key="loc">{profile.location}</span>);
-  if (profile.wechat) contactParts.push(<span key="wechat">微信:{profile.wechat}</span>);
+  if (profile.wechat) contactParts.push(<span key="wechat">微信:{mask(profile.wechat)}</span>);
   if (profile.website) contactParts.push(<span key="site">{profile.website}</span>);
   if (showFormalFields) {
     if (profile.gender) contactParts.push(<span key="gender">{profile.gender}</span>);
     if (profile.politicalStatus) contactParts.push(<span key="poli">政治面貌:{profile.politicalStatus}</span>);
     if (profile.nativePlace) contactParts.push(<span key="place">籍贯:{profile.nativePlace}</span>);
   }
+
+  // 尺寸
+  const size = PHOTO_SIZES[photoSize] || PHOTO_SIZES.md;
+  const radius = photoShape === 'rounded' ? '3px' : '1.5px';
 
   return (
     <div className="flex items-start justify-between gap-4 mb-3">
@@ -38,7 +60,7 @@ export const HeaderBlock: React.FC<{
             className="font-bold"
             style={{ fontSize: `${nameSizePt}pt`, letterSpacing: '0.02em' }}
           >
-            {profile.name || '姓名'}
+            {privacyBlur && profile.name ? '（已隐藏）' : (profile.name || '姓名')}
           </h1>
           {profile.title && (
             <span style={{ fontSize: '11.5pt', color: '#444' }}>{profile.title}</span>
@@ -59,7 +81,7 @@ export const HeaderBlock: React.FC<{
         <img
           src={avatarUrl}
           alt="证件照"
-          style={{ width: '22mm', height: '30.8mm', objectFit: 'cover', borderRadius: '1.5px' }}
+          style={{ width: `${size.w}mm`, height: `${size.h}mm`, objectFit: 'cover', borderRadius: radius, flexShrink: 0 }}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useResumeStore } from '@/app/store/useResumeStore';
-import { Settings, Type, AlignJustify, Maximize2, X } from 'lucide-react';
+import { Settings, Type, AlignJustify, Maximize2, X, Image as ImageIcon, Columns2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/app/lib/utils';
 import { SpacingLevel, FontFamily } from '@/app/types/theme';
@@ -304,6 +304,158 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* 模块间距 */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <AlignJustify size={16} className="text-gray-500" />
+                  <h3 className="font-medium text-gray-800">模块间距</h3>
+                  <span className="ml-auto text-sm text-blue-600 font-medium">
+                    {settings.moduleGap ?? 6}mm
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="14"
+                  step="1"
+                  value={settings.moduleGap ?? 6}
+                  onChange={(e) => updateSettings({ moduleGap: parseInt(e.target.value) })}
+                  className="w-full accent-blue-600"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>2mm 紧凑</span>
+                  <span>6mm</span>
+                  <span>14mm 宽松</span>
+                </div>
+              </div>
+
+              {/* 照片设置 */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <ImageIcon size={16} className="text-gray-500" />
+                  <h3 className="font-medium text-gray-800">照片设置</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-14">位置</span>
+                    <div className="flex gap-1">
+                      {([['right', '右上'], ['top', '顶部']] as const).map(([v, label]) => (
+                        <button
+                          key={v}
+                          onClick={() => updateSettings({ photoPosition: v })}
+                          className={cn(
+                            "px-2 py-1 rounded text-xs border transition-colors",
+                            (settings.photoPosition || 'right') === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-14">形状</span>
+                    <div className="flex gap-1">
+                      {([['rect', '矩形'], ['rounded', '圆角']] as const).map(([v, label]) => (
+                        <button
+                          key={v}
+                          onClick={() => updateSettings({ photoShape: v })}
+                          className={cn(
+                            "px-2 py-1 rounded text-xs border transition-colors",
+                            (settings.photoShape || 'rect') === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-14">尺寸</span>
+                    <div className="flex gap-1">
+                      {([['sm', '小'], ['md', '中'], ['lg', '大']] as const).map(([v, label]) => (
+                        <button
+                          key={v}
+                          onClick={() => updateSettings({ photoSize: v })}
+                          className={cn(
+                            "px-2 py-1 rounded text-xs border transition-colors",
+                            (settings.photoSize || 'md') === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 双栏模板：宽度 / 底色（仅 compactSplit 生效，全局保留以免切换丢设置） */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Columns2 size={16} className="text-gray-500" />
+                  <h3 className="font-medium text-gray-800">双栏排版</h3>
+                  <span className="ml-auto text-xs text-gray-400">仅双栏模板生效</span>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-14">左栏宽</span>
+                    <div className="flex gap-1">
+                      {([25, 30, 35] as const).map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => updateSettings({ splitWidth: v })}
+                          className={cn(
+                            "px-2 py-1 rounded text-xs border transition-colors",
+                            (settings.splitWidth || 25) === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
+                          )}
+                        >
+                          {v}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-14">左栏底色</span>
+                    <div className="flex gap-1">
+                      {([['#FAFAFA', '浅灰'], ['#EFF4FB', '浅蓝'], ['#FFFFFF', '纯白']] as const).map(([v, label]) => (
+                        <button
+                          key={v}
+                          onClick={() => updateSettings({ splitColor: v as '#FAFAFA' | '#EFF4FB' | '#FFFFFF' })}
+                          className={cn(
+                            "w-8 h-6 rounded border transition-colors",
+                            (settings.splitColor || '#FAFAFA') === v ? "border-blue-500 ring-1 ring-blue-400" : "border-gray-200"
+                          )}
+                          style={{ backgroundColor: v }}
+                          title={label}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 打码模式（分享预览用，不影响数据） */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200">
+                <div>
+                  <h3 className="font-medium text-gray-800 text-sm">打码模式</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">预览/导出时隐藏姓名、手机、邮箱、微信（数据不变）</p>
+                </div>
+                <button
+                  onClick={() => updateSettings({ privacyBlur: !(settings.privacyBlur || false) })}
+                  className={cn(
+                    "w-10 h-5 rounded-full transition-colors relative",
+                    settings.privacyBlur ? "bg-blue-600" : "bg-gray-300"
+                  )}
+                  aria-label="打码模式开关"
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform"
+                    style={{ transform: settings.privacyBlur ? 'translateX(20px)' : 'translateX(0)' }}
+                  />
+                </button>
               </div>
 
               {/* Reset */}

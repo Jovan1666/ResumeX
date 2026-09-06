@@ -23,30 +23,40 @@ const EN_TITLES: Record<string, string> = {
 };
 
 export const EnSimpleTemplate: React.FC<{ data: ResumeData }> = memo(({ data }) => {
-  const { profile, modules } = data;
+  const { profile, modules, settings } = data;
   const visibleModules = modules.filter((m) => m.visible && m.items.length > 0);
+  const gap = settings.moduleGap ?? 6;
 
   return (
     <ResumeChrome data={data}>
       <SingleColumnLayout data={data}>
-        <HeaderBlock profile={profile} showPhoto="right" separator="|" nameSizePt={16} />
+        <HeaderBlock
+          profile={profile}
+          showPhoto="right"
+          separator="|"
+          nameSizePt={16}
+          privacyBlur={settings.privacyBlur}
+          photoShape={settings.photoShape}
+          photoSize={settings.photoSize}
+        />
 
         {profile.summary && (
-          <div className="rx-section mb-3">
+          <div className="rx-section" style={{ marginBottom: `${gap}mm` }}>
             <SectionTitle title="Profile" variant="line" colorVar="#000" sizePt={12} />
             <p style={{ fontSize: '10pt', color: '#333', lineHeight: 1.4 }}>{profile.summary}</p>
           </div>
         )}
 
         {visibleModules.map((module) => {
-          const enTitle = EN_TITLES[module.title] || module.title;
+          const enTitle = EN_TITLES[module.title] || module.title || '';
+          const heading = module.titleOverride || enTitle;
           return (
-            <div key={module.id} className="rx-section mb-3">
-              <SectionTitle title={enTitle} variant="line" colorVar="#000" sizePt={12} />
+            <div key={module.id} className="rx-section" style={{ marginBottom: `${gap}mm` }}>
+              <SectionTitle title={heading} variant="line" colorVar="#000" sizePt={12} />
               {isSkillsModule(module) ? (
                 <SkillGroups items={module.items as { id: string; name: string; group?: string }[]} separator=", " />
               ) : (
-                <div className="space-y-2">
+                <div className={module.columns === 2 ? 'grid grid-cols-2 gap-x-6 gap-y-2' : 'space-y-2'}>
                   {(module.items as ResumeItem[]).map((item) => (
                     <div key={item.id} className="rx-item mb-2.5 last:mb-0">
                       <div className="flex justify-between items-baseline gap-2">

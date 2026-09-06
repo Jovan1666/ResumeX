@@ -69,6 +69,14 @@ export interface BaseResumeModule<T extends ModuleItemType> {
   title: string;
   items: T[];
   visible: boolean;
+  /** 用户自定义标题文案（优先级高于 title；空则用默认 title） */
+  titleOverride?: string;
+  /** 标题装饰样式：下划线（默认）/ 左侧色条 / 纯加粗无装饰 */
+  titleStyle?: 'line' | 'bar' | 'plain';
+  /** 项目符号样式：圆点（默认）/ 短横线 / 无 */
+  bulletStyle?: 'dot' | 'dash' | 'none';
+  /** 内容列数：1（默认）/ 2（教育背景、技能常用两列） */
+  columns?: 1 | 2;
 }
 
 export interface SkillsModule extends BaseResumeModule<SkillItem> {

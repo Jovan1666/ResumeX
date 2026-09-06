@@ -1,22 +1,33 @@
 import React from 'react';
 
 /**
- * SectionTitle：栏目标题，两种 variant：
- * - line：主题色加粗 + 下划线（推荐单栏）
- * - bar：左侧色条（3px） + 加粗文字（体制/商务）
+ * 栏目标题：三种装饰样式（可切换），默认下划线。
+ * - line：主题色加粗 + 下划线
+ * - bar：左侧 3px 色条 + 加粗
+ * - plain：纯加粗无装饰（ATS 极简用）
  * 不作用于中文标题的 letter-spacing（禁止拉字距）。
  */
 export const SectionTitle: React.FC<{
   title: string;
-  variant?: 'line' | 'bar';
+  variant?: 'line' | 'bar' | 'plain';
   sizePt?: number;
   colorVar?: string;
   className?: string;
-}> = ({ title, variant = 'line', sizePt = 12.5, colorVar = 'var(--color-primary)', className = '' }) => {
+  /** 是否渲染栏目标题（false 则完全省略标题） */
+  showHeading?: boolean;
+}> = ({ title, variant = 'line', sizePt = 12.5, colorVar = 'var(--color-primary)', className = '', showHeading = true }) => {
+  if (!showHeading) return null;
   if (variant === 'bar') {
     return (
       <div className={`flex items-center gap-2 mb-1.5 ${className}`}>
         <span style={{ width: '3px', height: '0.9em', backgroundColor: colorVar, borderRadius: '1px' }} />
+        <h3 className="font-bold" style={{ fontSize: `${sizePt}pt`, color: '#111' }}>{title}</h3>
+      </div>
+    );
+  }
+  if (variant === 'plain') {
+    return (
+      <div className={`mb-1.5 ${className}`}>
         <h3 className="font-bold" style={{ fontSize: `${sizePt}pt`, color: '#111' }}>{title}</h3>
       </div>
     );
