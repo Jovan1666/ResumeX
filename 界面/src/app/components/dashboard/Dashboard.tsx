@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FileText, Plus, Clock, Trash2, Edit, Settings, Download, Upload, AlertTriangle, X, Copy } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { themes } from '@/app/types/theme';
+import { themes, FALLBACK_THEME } from '@/app/types/theme';
 import { exportBackup, importBackup, clearAllData } from '@/app/utils/backup';
 import { useToast } from '@/app/components/ui/toast';
 import { ResumeRenderer } from '@/app/components/templates/ResumeRenderer';
@@ -115,8 +115,8 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleExport = () => {
-    const result = exportBackup();
+  const handleExport = async () => {
+    const result = await exportBackup();
     if (result.success) {
       showToast('success', result.message);
     } else {
@@ -142,11 +142,11 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleClearAll = () => {
-    const result = clearAllData();
+  const handleClearAll = async () => {
+    const result = await clearAllData();
     if (result.success) {
       showToast('success', result.message);
-      // clearAllData 内部已安排 500ms 后自动刷新，无需重复 reload
+      // 清空后状态已置空，无需刷新
     } else {
       showToast('error', result.message);
     }
@@ -238,25 +238,25 @@ export const Dashboard: React.FC = () => {
                 <div className="flex-1 bg-gray-50 relative overflow-hidden">
                   <ResumeCardPreview data={resume} />
                   
-                  {/* Overlay Actions */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-10">
-                    <button 
+                  {/* Overlay Actions - 常显（触控可用，P1-9 修复） */}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-3 z-10">
+                    <button
                       onClick={(e) => { e.stopPropagation(); handleEdit(resume.id); }}
-                      className="p-2 bg-white rounded-full text-gray-700 hover:text-blue-600 hover:shadow-md transition-all transform hover:scale-110"
+                      className="p-2 bg-white rounded-full text-gray-700 hover:text-blue-600 hover:shadow-md transition-all"
                       title="编辑"
                     >
                       <Edit size={18} />
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => handleDuplicate(e, resume.id)}
-                      className="p-2 bg-white rounded-full text-gray-700 hover:text-green-600 hover:shadow-md transition-all transform hover:scale-110"
+                      className="p-2 bg-white rounded-full text-gray-700 hover:text-green-600 hover:shadow-md transition-all"
                       title="复制"
                     >
                       <Copy size={18} />
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => handleDelete(e, resume.id)}
-                      className="p-2 bg-white rounded-full text-gray-700 hover:text-red-500 hover:shadow-md transition-all transform hover:scale-110"
+                      className="p-2 bg-white rounded-full text-gray-700 hover:text-red-500 hover:shadow-md transition-all"
                       title="删除"
                     >
                       <Trash2 size={18} />
@@ -271,7 +271,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <div 
                         className="w-3 h-3 rounded-full border border-gray-200" 
-                        style={{ backgroundColor: (themes[resume.settings.themeColor] || themes['tech-orange']).colors.primary }}
+                        style={{ backgroundColor: (themes[resume.settings.themeColor] || themes[FALLBACK_THEME]).colors.primary }}
                         title="主题色"
                       ></div>
                     </div>

@@ -2,10 +2,49 @@ import React, { useRef, useState, useEffect, useMemo, memo, useCallback } from '
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle, FileText, Zap, Download, Sparkles, Shield, Clock } from 'lucide-react';
 import { ResumeRenderer } from '@/app/components/templates/ResumeRenderer';
-import { initialResumeData } from '@/app/data/initialData';
 import { useResumeStore } from '@/app/store/useResumeStore';
 import { TemplateId, ResumeData } from '@/app/types/resume';
 import { ThemeColor } from '@/app/types/theme';
+
+// 着陆页模板预览用的演示数据（只用于展示缩略图；新建简历仍为空）
+function makeLandingPreviewData(templateId: TemplateId, themeColor: ThemeColor): ResumeData {
+  return {
+    id: `landing-preview-${templateId}`,
+    title: '示例简历',
+    lastModified: Date.now(),
+    template: templateId,
+    settings: {
+      themeColor,
+      fontFamily: 'sans',
+      fontSizeScale: 1,
+      lineHeight: 'standard',
+      pageMargin: 'standard',
+      language: 'zh',
+    },
+    profile: {
+      name: '王小明',
+      title: '前端开发工程师',
+      email: 'wangxm@example.com',
+      phone: '138 0000 1234',
+      location: '北京',
+      wechat: 'wangxm_dev',
+      summary: '5 年 Web 开发经验，熟悉 React/TypeScript 与工程化，主导过 3 个百万级用户前端项目。',
+      avatar: '',
+      customFields: [],
+    },
+    modules: [
+      { id: 'edu-1', type: 'education', title: '教育背景', visible: true, items: [
+        { id: 'e1', title: '软件工程 / 本科', subtitle: '华北理工大学', date: '2016.09 - 2020.06', description: '主修：数据结构、操作系统、计算机网络。' } ] },
+      { id: 'exp-1', type: 'experience', title: '工作经历', visible: true, items: [
+        { id: 'x1', title: '前端工程师', subtitle: '某某科技', date: '2021.03 - 至今', description: '• 负责核心产品 Web 端架构与开发。\n• 构建性能监控体系，首屏耗时降低 40%。' },
+        { id: 'x2', title: '初级前端工程师', subtitle: '某某网络', date: '2020.07 - 2021.02', description: '• 参与营销活动页开发，独立完成 10+ 页面。' } ] },
+      { id: 'proj-1', type: 'projects', title: '项目经历', visible: true, items: [
+        { id: 'p1', title: '可视化搭建平台', subtitle: '个人开源项目', date: '2022.01 - 2023.06', description: '• 基于 React + dnd-kit 实现拖拽低代码编辑器。\n• 技术栈：React、TypeScript、TailwindCSS。' } ] },
+      { id: 'skills-1', type: 'skills', title: '专业技能', visible: true, items: [
+        { id: 's1', name: 'React / Vue' }, { id: 's2', name: 'TypeScript' }, { id: 's3', name: 'Node.js' }, { id: 's4', name: '工程化' } ] },
+    ],
+  };
+}
 
 // 落地页模板预览缩略图
 const LandingTemplatePreview: React.FC<{ templateId: TemplateId; themeColor: ThemeColor }> = memo(({ templateId, themeColor }) => {
@@ -33,15 +72,7 @@ const LandingTemplatePreview: React.FC<{ templateId: TemplateId; themeColor: The
     };
   }, []);
 
-  const previewData = useMemo<ResumeData>(() => ({
-    ...initialResumeData,
-    id: `landing-preview-${templateId}`,
-    template: templateId,
-    settings: {
-      ...initialResumeData.settings,
-      themeColor,
-    },
-  }), [templateId, themeColor]);
+  const previewData = useMemo<ResumeData>(() => makeLandingPreviewData(templateId, themeColor), [templateId, themeColor]);
 
   return (
     <div
@@ -164,7 +195,7 @@ export const LandingPage: React.FC = () => {
             <div className="relative z-10">
               <div className="transform rotate-3 hover:rotate-0 transition-transform duration-500 shadow-2xl rounded-lg overflow-hidden border-4 border-white bg-white">
                 {/* 真实简历预览 */}
-                <LandingTemplatePreview templateId="professional" themeColor="pro-blue" />
+                <LandingTemplatePreview templateId="campusClean" themeColor="campus" />
               </div>
             </div>
             {/* 装饰 */}
@@ -232,9 +263,9 @@ export const LandingPage: React.FC = () => {
 
           <div className="grid md:grid-cols-3 gap-8">
             {([
-              { name: '科技橙红', tag: '技术岗', color: 'bg-orange-500', desc: '适合IT、互联网行业', templateId: 'tech' as TemplateId, themeColor: 'tech-orange' as ThemeColor },
-              { name: '商务浅蓝', tag: '校招/商务', color: 'bg-blue-600', desc: '适合应届生、商务岗位', templateId: 'business' as TemplateId, themeColor: 'business-blue' as ThemeColor },
-              { name: '活力红', tag: '创意/运营', color: 'bg-red-500', desc: '适合运营、市场岗位', templateId: 'vibrant' as TemplateId, themeColor: 'vibrant-red' as ThemeColor },
+              { name: '校招通用', tag: '应届/实习', color: 'bg-blue-600', desc: '单栏、教育在前，可选择证件照', templateId: 'campusClean' as TemplateId, themeColor: 'campus' as ThemeColor },
+              { name: '社招通用', tag: '互联网社招', color: 'bg-blue-700', desc: '单栏、工作在前，干净利落', templateId: 'jobClean' as TemplateId, themeColor: 'navy' as ThemeColor },
+              { name: '极简黑白', tag: '网申/保守', color: 'bg-gray-800', desc: '纯黑白单栏，ATS 网申解析最友好', templateId: 'atsMono' as TemplateId, themeColor: 'ink' as ThemeColor },
             ]).map((t, i) => (
               <button 
                 key={i} 
