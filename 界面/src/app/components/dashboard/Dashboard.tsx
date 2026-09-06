@@ -239,13 +239,22 @@ export const Dashboard: React.FC = () => {
             </div>
             <h3 className="text-xl font-bold text-gray-800 mb-2">还没有简历</h3>
             <p className="text-gray-500 mb-8">创建你的第一份专业简历，开启职业新篇章</p>
-            <button 
-              onClick={handleCreateNew}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-medium transition-colors inline-flex items-center gap-2"
-            >
-              <Plus size={18} />
-              立即创建
-            </button>
+            <div className="flex justify-center gap-3">
+              <button 
+                onClick={handleCreateNew}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors inline-flex items-center gap-2"
+              >
+                <Plus size={18} />
+                立即创建
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="border border-gray-300 hover:border-gray-400 text-gray-700 px-6 py-3 rounded-xl font-medium transition-colors inline-flex items-center gap-2"
+              >
+                <Upload size={18} />
+                导入备份
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
