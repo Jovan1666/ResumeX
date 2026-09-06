@@ -35,57 +35,60 @@ export const jobCategories: JobCategoryOption[] = [
   { id: 'other', label: '其他', icon: '📋' },
 ];
 
-// 根据身份+岗位类别返回推荐配置
+// 新模板 id → 身份/岗位映射（只指向 8 套，禁止 creative/infographic/tech）
+const freshTemplateMap: Record<string, TemplateId> = {
+  tech: 'techPlain',
+  product: 'campusClean',
+  finance: 'navyBiz',
+  education: 'campusClean',
+  admin: 'civilFile',
+  design: 'campusClean',
+  sales: 'campusClean',
+  other: 'campusClean',
+};
+
+const workingTemplateMap: Record<string, TemplateId> = {
+  tech: 'techPlain',
+  product: 'jobClean',
+  finance: 'navyBiz',
+  education: 'navyBiz',
+  admin: 'civilFile',
+  design: 'jobClean',
+  sales: 'jobClean',
+  other: 'jobClean',
+};
+
+// 根据身份+岗位类别返回推荐配置（02 §4.6）
 export function getPreset(identity: string, jobCategory: string): QuickStartPreset {
-  // 应届生：教育优先
+  // 应届生：教育 → 实习 → 项目 → 校园 → 技能 → 荣誉 → 评价
   if (identity === 'fresh') {
     const base: { type: ModuleType; title: string }[] = [
       { type: 'education', title: '教育背景' },
-      { type: 'projects', title: '项目经历' },
       { type: 'experience', title: '实习经历' },
+      { type: 'projects', title: '项目经历' },
+      { type: 'campus', title: '校园经历' },
       { type: 'skills', title: '技能特长' },
+      { type: 'honors', title: '荣誉奖项' },
     ];
-
-    const templateMap: Record<string, TemplateId> = {
-      tech: 'freshGrad',
-      product: 'freshGrad',
-      finance: 'business',
-      education: 'freshGrad',
-      admin: 'business',
-      design: 'creative',
-      sales: 'freshGrad',
-      other: 'freshGrad',
-    };
-
     return {
-      templateId: templateMap[jobCategory] || 'freshGrad',
+      templateId: freshTemplateMap[jobCategory] || 'campusClean',
       moduleOrder: base,
     };
   }
 
-  // 在职跳槽：工作经历优先
+  // 社招：工作 → 项目 → 教育 → 技能 → 荣誉 → 评价
   const workingBase: { type: ModuleType; title: string }[] = [
     { type: 'experience', title: '工作经历' },
     { type: 'projects', title: '项目经历' },
     { type: 'education', title: '教育背景' },
     { type: 'skills', title: '技能特长' },
+    { type: 'honors', title: '荣誉奖项' },
   ];
-
-  const workingTemplateMap: Record<string, TemplateId> = {
-    tech: 'tech',
-    product: 'vibrant',
-    finance: 'accountant',
-    education: 'teacher',
-    admin: 'hr',
-    design: 'creative',
-    sales: 'sales',
-    other: 'industry',
-  };
 
   // 自由职业：项目优先
   if (identity === 'freelance') {
     return {
-      templateId: workingTemplateMap[jobCategory] || 'creative',
+      templateId: workingTemplateMap[jobCategory] || 'jobClean',
       moduleOrder: [
         { type: 'projects', title: '项目经历' },
         { type: 'experience', title: '工作经历' },
@@ -96,7 +99,7 @@ export function getPreset(identity: string, jobCategory: string): QuickStartPres
   }
 
   return {
-    templateId: workingTemplateMap[jobCategory] || 'professional',
+    templateId: workingTemplateMap[jobCategory] || 'jobClean',
     moduleOrder: workingBase,
   };
 }

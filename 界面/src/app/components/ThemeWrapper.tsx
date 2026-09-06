@@ -1,5 +1,5 @@
 import React from 'react';
-import { themes, ThemeColor } from '@/app/types/theme';
+import { themes, ThemeColor, FALLBACK_THEME } from '@/app/types/theme';
 
 interface ThemeWrapperProps {
   theme: ThemeColor;
@@ -8,10 +8,11 @@ interface ThemeWrapperProps {
 }
 
 export const ThemeWrapper: React.FC<ThemeWrapperProps> = ({ theme, children, className }) => {
-  const currentTheme = themes[theme] || themes['tech-orange'];
+  // 未知主题 fallback 到 ink（禁止 tech-orange）
+  const currentTheme = themes[theme] || themes[FALLBACK_THEME];
 
   return (
-    <div 
+    <div
       className={className}
       style={{
         '--color-primary': currentTheme.colors.primary,
