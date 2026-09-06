@@ -2,44 +2,19 @@ import React, { memo, useMemo, Suspense, lazy } from 'react';
 import { ResumeData, TemplateId } from '@/app/types/resume';
 import { ThemeWrapper } from '@/app/components/ThemeWrapper';
 
-// 懒加载所有模板，只有当前使用的模板才会被加载到内存
+/**
+ * 模板加载器（阶段 3）：8 个新模板文件（_primitives + 少量变体）。
+ * 旧 *Template.tsx 已 git 删除；moduleId 未知 → campusClean（禁止 fallback 到 tech）。
+ */
 const templateLoaders: Record<TemplateId, () => Promise<{ default: React.ComponentType<{ data: ResumeData }> }>> = {
-  tech: () => import('./TechTemplate').then(m => ({ default: m.TechTemplate })),
-  business: () => import('./BusinessTemplate').then(m => ({ default: m.BusinessTemplate })),
-  minimal: () => import('./MinimalTemplate').then(m => ({ default: m.MinimalTemplate })),
-  vibrant: () => import('./VibrantTemplate').then(m => ({ default: m.VibrantTemplate })),
-  professional: () => import('./ProfessionalTemplate').then(m => ({ default: m.ProfessionalTemplate })),
-  civilService: () => import('./CivilServiceTemplate').then(m => ({ default: m.CivilServiceTemplate })),
-  javaDev: () => import('./JavaDevTemplate').then(m => ({ default: m.JavaDevTemplate })),
-  operations: () => import('./OperationsTemplate').then(m => ({ default: m.OperationsTemplate })),
-  aiDev: () => import('./AIDevTemplate').then(m => ({ default: m.AIDevTemplate })),
-  industry: () => import('./IndustryTemplate').then(m => ({ default: m.IndustryTemplate })),
-  engineer: () => import('./EngineerTemplate').then(m => ({ default: m.EngineerTemplate })),
-  accountant: () => import('./AccountantTemplate').then(m => ({ default: m.AccountantTemplate })),
-  hr: () => import('./HRTemplate').then(m => ({ default: m.HRTemplate })),
-  medical: () => import('./MedicalTemplate').then(m => ({ default: m.MedicalTemplate })),
-  sales: () => import('./SalesTemplate').then(m => ({ default: m.SalesTemplate })),
-  media: () => import('./MediaTemplate').then(m => ({ default: m.MediaTemplate })),
-  teacher: () => import('./TeacherTemplate').then(m => ({ default: m.TeacherTemplate })),
-  timeline: () => import('./TimelineTemplate').then(m => ({ default: m.TimelineTemplate })),
-  twoColumnCompact: () => import('./TwoColumnCompactTemplate').then(m => ({ default: m.TwoColumnCompactTemplate })),
-  creative: () => import('./CreativeTemplate').then(m => ({ default: m.CreativeTemplate })),
-  academic: () => import('./AcademicTemplate').then(m => ({ default: m.AcademicTemplate })),
-  card: () => import('./CardTemplate').then(m => ({ default: m.CardTemplate })),
-  executive: () => import('./ExecutiveTemplate').then(m => ({ default: m.ExecutiveTemplate })),
-  freshGrad: () => import('./FreshGradTemplate').then(m => ({ default: m.FreshGradTemplate })),
-  infographic: () => import('./InfographicTemplate').then(m => ({ default: m.InfographicTemplate })),
-  aiRed: () => import('./AiRedTemplate').then(m => ({ default: m.AiRedTemplate })),
-  opsOrange: () => import('./OpsOrangeTemplate').then(m => ({ default: m.OpsOrangeTemplate })),
-  fePurple: () => import('./FePurpleTemplate').then(m => ({ default: m.FePurpleTemplate })),
-  eduDark: () => import('./EduDarkTemplate').then(m => ({ default: m.EduDarkTemplate })),
-  enBw: () => import('./EnBwTemplate').then(m => ({ default: m.EnBwTemplate })),
-  generalRed: () => import('./GeneralRedTemplate').then(m => ({ default: m.GeneralRedTemplate })),
-  javaBlue: () => import('./JavaBlueTemplate').then(m => ({ default: m.JavaBlueTemplate })),
-  gradBlue: () => import('./GradBlueTemplate').then(m => ({ default: m.GradBlueTemplate })),
-  recruitBk: () => import('./RecruitBkTemplate').then(m => ({ default: m.RecruitBkTemplate })),
-  feGreen: () => import('./FeGreenTemplate').then(m => ({ default: m.FeGreenTemplate })),
-  civilGray: () => import('./CivilGrayTemplate').then(m => ({ default: m.CivilGrayTemplate })),
+  campusClean: () => import('./CampusCleanTemplate').then(m => ({ default: m.CampusCleanTemplate })),
+  jobClean: () => import('./JobCleanTemplate').then(m => ({ default: m.JobCleanTemplate })),
+  navyBiz: () => import('./NavyBizTemplate').then(m => ({ default: m.NavyBizTemplate })),
+  civilFile: () => import('./CivilFileTemplate').then(m => ({ default: m.CivilFileTemplate })),
+  techPlain: () => import('./TechPlainTemplate').then(m => ({ default: m.TechPlainTemplate })),
+  atsMono: () => import('./AtsMonoTemplate').then(m => ({ default: m.AtsMonoTemplate })),
+  compactSplit: () => import('./CompactSplitTemplate').then(m => ({ default: m.CompactSplitTemplate })),
+  enSimple: () => import('./EnSimpleTemplate').then(m => ({ default: m.EnSimpleTemplate })),
 };
 
 // 缓存已创建的 lazy 组件，避免重复创建
@@ -47,10 +22,16 @@ const lazyComponentCache = new Map<TemplateId, React.LazyExoticComponent<React.C
 
 function getLazyTemplate(templateId: TemplateId) {
   if (!lazyComponentCache.has(templateId)) {
-    const loader = templateLoaders[templateId] || templateLoaders.tech;
+    const loader = templateLoaders[templateId] || templateLoaders.campusClean;
     lazyComponentCache.set(templateId, lazy(loader));
   }
   return lazyComponentCache.get(templateId)!;
+}
+
+/** 归一化模板 id：未知字符串 → campusClean（禁止 fallback 到 tech） */
+export function normalizeTemplateId(id: string | undefined | null): TemplateId {
+  if (id && id in templateLoaders) return id as TemplateId;
+  return 'campusClean';
 }
 
 interface ResumeRendererProps {
@@ -60,7 +41,7 @@ interface ResumeRendererProps {
 
 // 使用 React.memo 优化，避免不必要的重渲染
 export const ResumeRenderer: React.FC<ResumeRendererProps> = memo(({ data, scale = 1 }) => {
-  const LazyTemplate = useMemo(() => getLazyTemplate(data.template), [data.template]);
+  const LazyTemplate = useMemo(() => getLazyTemplate(normalizeTemplateId(data.template)), [data.template]);
 
   // 稳定 style 引用，避免每次渲染都创建新对象触发不必要的 DOM diff
   const pageStyle = useMemo(() => ({
@@ -75,7 +56,7 @@ export const ResumeRenderer: React.FC<ResumeRendererProps> = memo(({ data, scale
 
   return (
     <ThemeWrapper theme={data.settings.themeColor}>
-      <div 
+      <div
         className="origin-top-left bg-white shadow-2xl print:shadow-none print:transform-none transition-transform duration-200 ease-out resume-page"
         data-font={data.settings.fontFamily || 'sans'}
         data-line-height={data.settings.lineHeight || 'standard'}
