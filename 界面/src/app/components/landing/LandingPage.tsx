@@ -122,6 +122,54 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* 编辑器截图（模拟） */}
+      <section className="pb-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="rounded-xl border border-gray-200 shadow-lg overflow-hidden bg-white">
+            {/* 模拟 Top bar */}
+            <div className="flex items-center gap-3 px-4 h-10 border-b border-gray-100 text-xs text-gray-500">
+              <span className="w-2 h-2 rounded-full bg-gray-300" />
+              <span className="w-2 h-2 rounded-full bg-gray-300" />
+              <span className="w-2 h-2 rounded-full bg-gray-300" />
+              <span className="ml-2">简历工具编辑器</span>
+              <span className="ml-auto text-gray-400">Ctrl+S 保存 · Ctrl+Z 撤销</span>
+            </div>
+            <div className="flex">
+              {/* 左栏（表单） */}
+              <div className="w-1/3 p-4 border-r border-gray-100 space-y-3">
+                <div className="h-2 w-2/3 bg-gray-200 rounded-full" />
+                <div className="h-2 w-full bg-gray-100 rounded-full" />
+                <div className="h-2 w-3/4 bg-gray-100 rounded-full" />
+                <div className="h-8 w-full bg-gray-50 border border-gray-200 rounded-md flex items-center px-2">
+                  <span className="text-[10px] text-gray-400">姓名</span>
+                </div>
+                <div className="h-2 w-1/2 bg-gray-200 rounded-full" />
+                <div className="h-8 w-full bg-gray-50 border border-gray-200 rounded-md flex items-center px-2">
+                  <span className="text-[10px] text-gray-400">学校 / 公司</span>
+                </div>
+              </div>
+              {/* 右栏（A4 预览） */}
+              <div className="flex-1 p-6 bg-gray-50 flex justify-center">
+                <div className="w-48 bg-white shadow rounded-sm p-4 space-y-2">
+                  <div className="h-3 w-20 bg-gray-800 rounded-sm" />
+                  <div className="h-1.5 w-32 bg-gray-200 rounded-full" />
+                  <div className="pt-2 space-y-1">
+                    <div className="h-1.5 w-24 bg-blue-200 rounded-full" />
+                    <div className="h-1.5 w-40 bg-gray-100 rounded-full" />
+                    <div className="h-1.5 w-36 bg-gray-100 rounded-full" />
+                  </div>
+                  <div className="pt-2 space-y-1">
+                    <div className="h-1.5 w-20 bg-blue-200 rounded-full" />
+                    <div className="h-1.5 w-40 bg-gray-100 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-center text-xs text-gray-400 mt-3">左填内容 · 右实时预览 · 所见即所得</p>
+        </div>
+      </section>
+
       {/* 特性 */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-3 gap-8">
@@ -136,6 +184,29 @@ export const LandingPage: React.FC = () => {
               <p className="text-sm text-gray-500 mt-2 leading-relaxed">{f.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-16">
+        <div className="max-w-2xl mx-auto px-6">
+          <h2 className="text-2xl font-bold text-center mb-8">常见问题</h2>
+          <div className="space-y-3">
+            {[
+              { q: '需要注册或登录吗？', a: '不需要。所有数据本地存储，打开即用。' },
+              { q: '数据会同步到云端吗？', a: '不会。简历与照片只存在你本机，不上传服务器；建议定期导出备份。' },
+              { q: '能导出哪些格式？', a: 'PDF（桌面端文字可选中）、Word（可继续编辑、网申兼容）、PNG 图片。' },
+              { q: '模板和设置可以自定义吗？', a: '可以。每套模板支持模块标题/项目符号/列数/双栏宽度等排版设置。' },
+            ].map((f, i) => (
+              <details key={i} className="bg-white border border-gray-200 rounded-lg px-5 py-4 group">
+                <summary className="font-medium text-sm text-gray-800 cursor-pointer list-none flex justify-between items-center">
+                  {f.q}
+                  <span className="text-gray-300 group-open:rotate-45 transition-transform text-lg leading-none">+</span>
+                </summary>
+                <p className="text-sm text-gray-500 mt-3 leading-relaxed">{f.a}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 
