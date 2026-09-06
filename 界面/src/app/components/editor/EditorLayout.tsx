@@ -9,6 +9,7 @@ import { StyleSettingsPanel } from './StyleSettingsPanel';
 import { OnboardingOverlay } from '@/app/components/OnboardingOverlay';
 import { useToast } from '@/app/components/ui/toast';
 import { useBreakpoint } from '@/app/hooks/useBreakpoint';
+import { UpdateBar } from './UpdateBar';
 // PDF 导出使用 html2canvas + jspdf 直接生成文件下载
 import { 
   Download, ChevronLeft, FileText, ZoomIn, ZoomOut, 
@@ -19,6 +20,8 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { cn } from '@/app/lib/utils';
 import { exportToDocx } from '@/app/utils/exportDocx';
 import { generateExportFilename } from '@/app/utils/exportFilename';
+import { isEditableTarget } from '@/app/store/useResumeStore';
+import { Undo2, Redo2 } from 'lucide-react';
 
 export const EditorLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -28,7 +31,10 @@ export const EditorLayout: React.FC = () => {
   const updateResume = useResumeStore(state => state.updateResume);
   const undo = useResumeStore(state => state.undo);
   const redo = useResumeStore(state => state.redo);
-  const pushHistory = useResumeStore(state => state.pushHistory);
+  const canUndo = useResumeStore(state => state.canUndo);
+  const canRedo = useResumeStore(state => state.canRedo);
+  const saveStatus = useResumeStore(state => state.saveStatus);
+  const flushSave = useResumeStore(state => state.flushSave);
   const { showToast } = useToast();
 
   // 使用 useDeferredValue 延迟预览更新，避免每次按键都阻塞渲染
@@ -40,9 +46,8 @@ export const EditorLayout: React.FC = () => {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showStyleSettings, setShowStyleSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [contentOverflow, setContentOverflow] = useState(0); // 百分比
   const [isExporting, setIsExporting] = useState(false);
+  const [contentOverflow, setContentOverflow] = useState(0); // 百分比
   const [contentDims, setContentDims] = useState({ width: 793, height: 1123 }); // 简历内容实际尺寸
   const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -69,83 +74,52 @@ export const EditorLayout: React.FC = () => {
 @font-face { font-family: 'Microsoft YaHei'; src: local('Microsoft YaHei'), local('PingFang SC'); font-weight: 100 900; font-display: swap; }
   `.trim();
 
-  // PDF 导出 - 使用 html-to-image + jspdf 直接生成文件下载
+  // PDF 导出（02 §8.1）：
+  // - 桌面：进入 print-mode（print.css 只显示 .resume-page）→ IPC 给主进程 printToPDF → 另存
+  // - 浏览器：同样 print-mode → window.print（系统打印 → 另存 PDF）
   const handleExportPdf = useCallback(async () => {
     if (!printRef.current || !resumeData || isExportingRef.current) return;
     isExportingRef.current = true;
     setIsExporting(true);
-    const zoomEl = zoomContainerRef.current;
-    const origZoom = zoomEl?.style.transform || '';
     try {
-      const { toCanvas } = await import('html-to-image');
-      const { jsPDF } = await import('jspdf');
-      const element = printRef.current;
+      // print-mode：print.css 把编辑器 chrome 隐藏，只保留 .resume-page
+      document.body.classList.add('print-mode');
+      document.body.classList.add('editor-chrome-hide');
+      // 等 CSS + 布局稳定
+      await new Promise(r => setTimeout(r, 350));
 
-      // 临时重置父级 zoom 容器的 transform（截图需要原始 1:1 尺寸）
-      if (zoomEl) zoomEl.style.transform = 'scale(1)';
-
-      const canvas = await toCanvas(element, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        fontEmbedCSS: LOCAL_FONT_CSS,
-      });
-
-      // 恢复父级 zoom
-      if (zoomEl) zoomEl.style.transform = origZoom;
-
-      // A4 尺寸 (mm)
-      const A4_W = 210;
-      const A4_H = 297;
-      const imgW = A4_W;
-      const imgH = (canvas.height * A4_W) / canvas.width;
-
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      let yOffset = 0;
-      let pageNum = 0;
-
-      // 生成一次 DataURL，避免循环内重复调用（每次约 50-100ms）
-      const canvasDataUrl = canvas.toDataURL('image/jpeg', 0.95);
-
-      // 如果内容超出一页，分页处理（防护：限制最大页数，避免 imgH 异常导致死循环）
-      const MAX_PAGES = 20;
-      while (yOffset < imgH && pageNum < MAX_PAGES && isFinite(imgH) && imgH > 0) {
-        if (pageNum > 0) pdf.addPage();
-        pdf.addImage(
-          canvasDataUrl,
-          'JPEG',
-          0,
-          -yOffset,
-          imgW,
-          imgH,
-        );
-        yOffset += A4_H;
-        pageNum++;
+      if (window.resumex) {
+        // 桌面：主进程对当前窗口（print-mode 后只显示简历）printToPDF，另存为
+        const result = await window.resumex.exportPdf();
+        if (result.ok) {
+          showToast('success', `PDF 已导出：${result.path || '已保存'}`);
+        } else {
+          showToast('error', result.message || 'PDF 导出失败');
+        }
+      } else {
+        // 浏览器：window.print（系统打印对话框 → 另存 PDF）
+        window.print();
       }
-
-      const filename = generateExportFilename(resumeData, 'pdf');
-      pdf.save(filename);
-      showToast('success', 'PDF 导出成功！');
     } catch (error) {
       console.error('PDF export failed:', error);
       showToast('error', 'PDF 导出失败，请重试');
     } finally {
-      if (zoomEl) zoomEl.style.transform = origZoom;
+      document.body.classList.remove('print-mode');
+      document.body.classList.remove('editor-chrome-hide');
       isExportingRef.current = false;
       setIsExporting(false);
     }
   }, [resumeData, showToast]);
 
-  // 合并：内容溢出检测 + 自动保存状态 (防抖 300ms，减少频繁触发)
+  // 合并：内容溢出检测（自动保存状态由 store.saveStatus 驱动，这里只测页面溢出）
   // 使用 deferredResumeData 作为依赖，避免每次击键都触发布局重算
   useEffect(() => {
-    setIsSaving(true);
     const timer = setTimeout(() => {
       if (printRef.current) {
         const A4_HEIGHT_PX = 297 * 3.78;
         const contentHeight = printRef.current.scrollHeight;
         setContentOverflow(Math.round((contentHeight / A4_HEIGHT_PX) * 100));
       }
-      setIsSaving(false);
     }, 300);
     return () => clearTimeout(timer);
   }, [deferredResumeData]);
@@ -193,6 +167,17 @@ export const EditorLayout: React.FC = () => {
     return true;
   }, [resumeData?.profile.name, showToast]);
 
+  // 真实保存：flush 到 IndexedDB，成功才 toast（P1 保存状态机）
+  const handleSave = useCallback(async () => {
+    if (!resumeData) return;
+    const ok = await flushSave();
+    if (ok) {
+      showToast('success', '简历已保存');
+    } else {
+      showToast('error', '保存失败：存储空间不足，请导出备份');
+    }
+  }, [resumeData, flushSave, showToast]);
+
   // (不再需要导出确认弹窗)
 
   // PDF 导出入口（带验证）
@@ -202,26 +187,42 @@ export const EditorLayout: React.FC = () => {
     handleExportPdf();
   }, [validateBeforeExport, handleExportPdf]);
 
-  // 快捷键支持
+  // 快捷键支持（P1-3 修复：焦点在输入框时 Ctrl+Z/Y 永远不抢）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target;
+      // 焦点在 input/textarea/select/contenteditable 时，Ctrl+Z/Y 交还给输入框
+      // 简历撤销只走顶栏按钮与 Ctrl+Alt+Z / Ctrl+Shift+Z（非输入焦点）
+      if (isEditableTarget(target)) {
+        return; // 什么都不做，不影响输入框的原生撤销
+      }
+
       // Ctrl/Cmd + S 保存
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        showToast('success', '简历已保存');
+        void handleSave();
       }
-      // Ctrl/Cmd + Z 撤销
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      // Ctrl+Alt+Z 撤销（输入框外）
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 'z') {
         e.preventDefault();
         undo();
+        return;
       }
-      // Ctrl/Cmd + Shift + Z 重做
+      // Ctrl/Cmd + Shift + Z 重做（输入框外）
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
         e.preventDefault();
         redo();
+        return;
+      }
+      // Ctrl/Cmd + Z 撤销（输入框外；不再 preventDefault 抢输入框）
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
       }
       // Ctrl/Cmd + P 打印/导出
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        if (isMobile) return; // 移动端不拦截打印
         e.preventDefault();
         handleExportPdfWithConfirm();
       }
@@ -236,18 +237,12 @@ export const EditorLayout: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showToast, handleExportPdfWithConfirm, undo, redo]);
+  }, [showToast, handleExportPdfWithConfirm, undo, redo, handleSave]);
 
   // 在关键编辑操作前记录历史快照（防抖）
-  const pushHistoryRef = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => {
-    if (!deferredResumeData) return;
-    if (pushHistoryRef.current) clearTimeout(pushHistoryRef.current);
-    pushHistoryRef.current = setTimeout(() => {
-      pushHistory();
-    }, 1000);
-    return () => { if (pushHistoryRef.current) clearTimeout(pushHistoryRef.current); };
-  }, [deferredResumeData, pushHistory]);
+  // 注意：P1-1 修复 —— 历史快照由 store action 在变更前 push，
+  // 这里不再对 deferredResumeData 做 1 秒 debounce pushHistory（会推「改完后」快照导致第一次 Ctrl+Z 无效果）
+  // 由 store 内部 pushHistorySnapshot 处理。
 
   // (handleExportPdf 已包含验证逻辑)
 
@@ -529,10 +524,15 @@ export const EditorLayout: React.FC = () => {
             />
             {!isMobile && (
               <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
-                {isSaving ? (
+                {saveStatus === 'saving' || saveStatus === 'dirty' ? (
                   <>
                     <Cloud size={10} className="animate-pulse" />
                     保存中...
+                  </>
+                ) : saveStatus === 'error' ? (
+                  <>
+                    <AlertTriangle size={10} className="text-red-400" />
+                    <span className="text-red-400">保存失败</span>
                   </>
                 ) : (
                   <>
@@ -546,9 +546,14 @@ export const EditorLayout: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1 md:gap-2 onboarding-export">
+          {/* 更新入口（仅桌面显示） */}
+          <div className="hidden lg:flex items-center">
+            <UpdateBar />
+          </div>
+
           <div className="hidden lg:flex items-center gap-2 text-xs text-gray-500 mr-2">
             <Keyboard size={14} />
-            <span>Ctrl+S 保存 | Ctrl+Z 撤销 | Ctrl+P 导出</span>
+            <span>Ctrl+S 保存 | Ctrl+Alt+Z 撤销 | Ctrl+P 导出</span>
           </div>
           
           {/* 移动端菜单按钮 */}
@@ -603,6 +608,26 @@ export const EditorLayout: React.FC = () => {
             </div>
           ) : (
             <>
+              {/* 撤销 / 重做（始终可见，含禁用态） */}
+              <button
+                onClick={() => undo()}
+                disabled={!canUndo}
+                className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                title="撤销 (Ctrl+Alt+Z)"
+              >
+                <Undo2 size={16} />
+                <span className="hidden md:inline">撤销</span>
+              </button>
+              <button
+                onClick={() => redo()}
+                disabled={!canRedo}
+                className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                title="重做 (Ctrl+Shift+Z)"
+              >
+                <Redo2 size={16} />
+                <span className="hidden md:inline">重做</span>
+              </button>
+
               <button 
                 onClick={() => setShowStyleSettings(true)}
                 className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700 hover:bg-gray-800"

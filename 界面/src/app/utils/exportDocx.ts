@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle, ImageRun, TabStopPosition, TabStopType } from 'docx';
 import { ResumeData, isSkillsModule, ResumeItem, SkillItem } from '@/app/types/resume';
-import { themes } from '@/app/types/theme';
+import { themes, FALLBACK_THEME } from '@/app/types/theme';
 import { generateExportFilename } from './exportFilename';
 
 /**
@@ -55,7 +55,7 @@ export async function exportToDocx(data: ResumeData): Promise<void> {
   const children: Paragraph[] = [];
 
   // 读取主题色
-  const themeConfig = themes[settings.themeColor] || themes['tech-orange'];
+  const themeConfig = themes[settings.themeColor] || themes[FALLBACK_THEME];
   const primaryHex = themeConfig.colors.primary.replace('#', '');
 
   // === 头部区域：姓名（左） + 头像（右） ===

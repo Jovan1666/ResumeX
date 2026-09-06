@@ -6,7 +6,7 @@ const mockResumeData: ResumeData = {
   id: 'r1',
   title: '我的简历',
   lastModified: Date.now(),
-  template: 'professional',
+  template: 'campusClean',
   profile: {
     name: '张/三',
     title: '前端:工程师',
@@ -16,7 +16,7 @@ const mockResumeData: ResumeData = {
   },
   modules: [],
   settings: {
-    themeColor: 'tech-orange',
+    themeColor: 'ink',
     fontFamily: 'sans',
     fontSizeScale: 1,
     lineHeight: 'standard',

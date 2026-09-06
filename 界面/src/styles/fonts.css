@@ -1,13 +1,15 @@
 /*
- * Google Fonts 引入已移至 index.html 中以非阻塞方式加载。
- * 字体加载失败（如在国内无法访问 Google）不会影响页面渲染，
- * 系统会自动使用 PingFang SC / Microsoft YaHei 等本地字体作为回退。
+ * 字体与简历全局样式。
+ *
+ * 注意（02 §5.3）：
+ * - .resume-page 的 padding 恒为 0；不要在这里给模板根节点垫 padding（会破坏双栏出血）
+ * - 每个模板通过自己的 `--rx-page-padding` 变量控制内边距
  */
 
-/* 字体族定义 */
+/* 字体族定义（系统字体优先，不依赖 Google Fonts） */
 :root {
-  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
-  --font-serif: 'Noto Serif SC', 'Source Han Serif', 'SimSun', Georgia, serif;
+  --font-sans: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'SimSun', 'Songti SC', 'Noto Serif SC', Georgia, serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
   --font-display: 'Playfair Display', 'Noto Serif SC', Georgia, serif;
   --font-kaiti: 'KaiTi', 'STKaiti', 'AR PL KaitiM GB', 'Noto Serif SC', serif;
@@ -32,53 +34,59 @@ body {
 
 /* ===== 简历页面全局样式设置 ===== */
 
-/* --- 字体族映射：覆盖模板硬编码的字体 --- */
-.resume-page[data-font="sans"] > div {
-  font-family: var(--font-sans) !important;
+/* --- 字体族映射：覆盖模板硬编码的字体（只作用于 .resume-page 包装内，且不再垫 padding） --- */
+.resume-page {
+  padding: 0 !important;
 }
-.resume-page[data-font="serif"] > div {
-  font-family: var(--font-serif) !important;
+.resume-page[data-font="sans"] {
+  font-family: var(--font-sans);
 }
-.resume-page[data-font="mono"] > div {
-  font-family: var(--font-mono) !important;
+.resume-page[data-font="serif"] {
+  font-family: var(--font-serif);
 }
-.resume-page[data-font="kaiti"] > div {
-  font-family: var(--font-kaiti) !important;
+.resume-page[data-font="mono"] {
+  font-family: var(--font-mono);
 }
-.resume-page[data-font="fangsong"] > div {
-  font-family: var(--font-fangsong) !important;
+.resume-page[data-font="kaiti"] {
+  font-family: var(--font-kaiti);
 }
-.resume-page[data-font="yahei"] > div {
-  font-family: var(--font-yahei) !important;
+.resume-page[data-font="fangsong"] {
+  font-family: var(--font-fangsong);
 }
-.resume-page[data-font="heiti"] > div {
-  font-family: var(--font-heiti) !important;
+.resume-page[data-font="yahei"] {
+  font-family: var(--font-yahei);
 }
-
-/* --- 行间距映射 --- */
-.resume-page[data-line-height="compact"] > div {
-  line-height: 1.35 !important;
-}
-.resume-page[data-line-height="standard"] > div {
-  line-height: 1.5 !important;
-}
-.resume-page[data-line-height="relaxed"] > div {
-  line-height: 1.75 !important;
-}
-.resume-page[data-line-height="custom"] > div {
-  line-height: var(--custom-line-height, 1.5) !important;
+.resume-page[data-font="heiti"] {
+  font-family: var(--font-heiti);
 }
 
-/* --- 页边距映射 --- */
-.resume-page[data-margin="compact"] > div {
-  padding: 10mm 15mm !important;
+/* --- 行间距映射（作用于模板根，不再简单>div） --- */
+.resume-page[data-line-height="compact"] {
+  line-height: 1.35;
 }
-.resume-page[data-margin="standard"] > div {
-  padding: 14mm 20mm !important;
+.resume-page[data-line-height="standard"] {
+  line-height: 1.5;
 }
-.resume-page[data-margin="relaxed"] > div {
-  padding: 18mm 25mm !important;
+.resume-page[data-line-height="relaxed"] {
+  line-height: 1.75;
 }
-.resume-page[data-margin="custom"] > div {
-  padding: calc(var(--custom-margin, 20mm) * 0.7) var(--custom-margin, 20mm) !important;
+.resume-page[data-line-height="custom"] {
+  line-height: var(--custom-line-height, 1.5);
+}
+
+/* --- 页边距：模板自己控制，这里只提供变量（不再给模板垫 padding） --- */
+.resume-page {
+  --rx-page-padding: 16mm;
+}
+.resume-page[data-margin="compact"] {
+  --rx-page-padding: 12mm;
+}
+.resume-page[data-margin="standard"] {
+  --rx-page-padding: 16mm;
+}
+.resume-page[data-margin="relaxed"] {
+  --rx-page-padding: 20mm;
+}
+.resume-page[data-margin="custom"] {
+  --rx-page-padding: var(--custom-margin, 16mm);
 }

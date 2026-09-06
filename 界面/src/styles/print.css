@@ -1,9 +1,12 @@
-/* 打印优化样式 */
+/* 打印优化样式（02 §8.1 / 03 Task 5.1） */
 
 @media print {
-  /* 隐藏非打印元素 */
+  /* 隐藏编辑器 chrome（不用 header 选择器，避免误藏简历姓名头） */
+  .editor-chrome {
+    display: none !important;
+  }
+  /* 旧的 class 一并隐藏（兼容） */
   .no-print,
-  header,
   nav,
   .sidebar,
   .toolbar,
@@ -12,12 +15,11 @@
   .modal,
   .toast,
   .onboarding-overlay,
-  [class*="fixed"],
   button:not(.print-btn) {
     display: none !important;
   }
 
-  /* 重置页面布局 */
+  /* 重置页面布局：仅简历 */
   body {
     margin: 0;
     padding: 0;
@@ -39,23 +41,21 @@
     background: white !important;
   }
 
-  /* 简历内容样式 */
+  /* 简历内容：不缩放、阴影清除。
+     注意：禁止 .resume-page { padding: 0 !important }（会把 --rx-page-padding 打掉） */
   .resume-content,
   .resume-page,
   [class*="ResumeRenderer"] {
     transform: none !important;
     box-shadow: none !important;
     margin: 0 !important;
-    padding: 0 !important;
     width: 210mm !important;
     min-height: 297mm !important;
   }
 
-  /* 分页设置 */
-  .module-section,
-  .experience-item,
-  .education-item,
-  .project-item {
+  /* 分页设置（打在原语 class 上） */
+  .rx-section,
+  .rx-item {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -78,7 +78,7 @@
     print-color-adjust: exact !important;
   }
 
-  /* 页面边距 */
+  /* 页面边距：0（内容由模板原语 --rx-page-padding 控制） */
   @page {
     size: A4;
     margin: 0;
@@ -97,4 +97,9 @@ body.print-mode {
 
 body.print-mode .print-preview-overlay {
   display: flex;
+}
+
+/* 打印模式下只显示简历 */
+body.print-mode > *:not(.print-preview-overlay):not(script) {
+  display: none !important;
 }

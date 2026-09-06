@@ -34,6 +34,15 @@ pnpm-debug.log*
 # Testing
 coverage/
 
+# Build/test artifacts
+.vite/
+*.d.ts
+*.tsbuildinfo
+.playwright-mcp/
+.mimosa/
+界面/.mimosa/
+界面/vite.config.d.ts
+
 # Misc
 *.local
 .cursor/
@@ -41,9 +50,6 @@ coverage/
 # Internal docs (contain competitive analysis and internal strategy)
 docs/
 简历App开发完整方案_专业版.md
-
-# Orphaned lock file (no root package.json)
-/package-lock.json
 
 # Release build output
 release/

@@ -97,7 +97,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
               
               <a
-                href="/"
+                href="#/"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
               >
                 <Home size={18} />

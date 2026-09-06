@@ -35,13 +35,16 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
   const [localValue, setLocalValue] = useState(String(value ?? ''));
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const isTypingRef = useRef(false);
+  const composingRef = useRef(false);
+  const lastCommittedRef = useRef(String(value ?? ''));
 
   // 外部值变化时同步（undo/redo、外部重置）
+  // echo 保护：incoming === local（自己的写回）不清 timer、不弹回
   useEffect(() => {
     const externalStr = String(value ?? '');
+    if (externalStr === localValue) return; // echo
     if (isTypingRef.current) {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
-      isTypingRef.current = false;
     }
     setLocalValue(externalStr);
   }, [value]);
@@ -57,37 +60,69 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
     return err === null;
   }, [combinedRules, fieldLabel, label]);
 
+  const commit = useCallback((val: string) => {
+    if (typeof onChange === 'function') {
+      // 用变化后的值直接调用（避免 e.target 已丢失）
+      onChange({ target: { value: val } } as unknown as React.ChangeEvent<HTMLInputElement>);
+    }
+    lastCommittedRef.current = val;
+  }, [onChange]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
     setLocalValue(newVal);
     if (touched) validate(newVal);
+    // IME 组合中不启动 debounce（等 compositionend）
+    if (composingRef.current) return;
 
     if (debounceMs > 0) {
       isTypingRef.current = true;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        onChange?.(e);
+        commit(newVal);
         isTypingRef.current = false;
       }, debounceMs);
     } else {
-      onChange?.(e);
+      commit(newVal);
+    }
+  };
+
+  const handleCompositionEnd = () => {
+    composingRef.current = false;
+    const cur = localValue;
+    if (cur !== lastCommittedRef.current) {
+      if (debounceMs > 0) {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          commit(cur);
+          isTypingRef.current = false;
+        }, debounceMs);
+      } else {
+        commit(cur);
+      }
     }
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    // 失焦时立即提交，防止丢失内容
+    composingRef.current = false;
+    // 失焦时立即提交，防止丢失内容（与 DebouncedInput 一致）
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
-    if (isTypingRef.current && localValue !== String(value ?? '')) {
-      onChange?.(e);
+    if (localValue !== lastCommittedRef.current) {
+      commit(localValue);
       isTypingRef.current = false;
     }
     setTouched(true);
-    validate(e.target.value);
+    validate(localValue);
     onBlur?.(e);
   };
 
-  // 组件卸载时清理定时器
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  // 组件卸载时清理定时器并 flush 最后一次输入（P0-4 修复）
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (localValue !== lastCommittedRef.current) {
+      commit(localValue);
+    }
+  }, []);
 
   const showError = touched && error;
   const showSuccess = touched && !error && localValue;
@@ -122,6 +157,8 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
           value={localValue}
           onChange={handleChange}
           onBlur={handleBlur}
+          onCompositionStart={() => { composingRef.current = true; }}
+          onCompositionEnd={handleCompositionEnd}
           aria-required={required}
           aria-invalid={showError ? true : undefined}
           aria-describedby={showError ? errorId : undefined}
@@ -181,12 +218,14 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
   const [localValue, setLocalValue] = useState(String(value ?? ''));
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const isTypingRef = useRef(false);
+  const composingRef = useRef(false);
+  const lastCommittedRef = useRef(String(value ?? ''));
 
   useEffect(() => {
     const externalStr = String(value ?? '');
+    if (externalStr === localValue) return; // echo
     if (isTypingRef.current) {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
-      isTypingRef.current = false;
     }
     setLocalValue(externalStr);
   }, [value]);
@@ -203,35 +242,65 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
     return err === null;
   }, [combinedRules, fieldLabel, label]);
 
+  const commit = useCallback((val: string) => {
+    if (typeof onChange === 'function') {
+      onChange({ target: { value: val } } as unknown as React.ChangeEvent<HTMLTextAreaElement>);
+    }
+    lastCommittedRef.current = val;
+  }, [onChange]);
+
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newVal = e.target.value;
     setLocalValue(newVal);
     if (touched) validate(newVal);
+    if (composingRef.current) return;
 
     if (debounceMs > 0) {
       isTypingRef.current = true;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        onChange?.(e);
+        commit(newVal);
         isTypingRef.current = false;
       }, debounceMs);
     } else {
-      onChange?.(e);
+      commit(newVal);
+    }
+  };
+
+  const handleCompositionEnd = () => {
+    composingRef.current = false;
+    const cur = localValue;
+    if (cur !== lastCommittedRef.current) {
+      if (debounceMs > 0) {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          commit(cur);
+          isTypingRef.current = false;
+        }, debounceMs);
+      } else {
+        commit(cur);
+      }
     }
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    composingRef.current = false;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = undefined; }
-    if (isTypingRef.current && localValue !== String(value ?? '')) {
-      onChange?.(e);
+    if (localValue !== lastCommittedRef.current) {
+      commit(localValue);
       isTypingRef.current = false;
     }
     setTouched(true);
-    validate(e.target.value);
+    validate(localValue);
     onBlur?.(e);
   };
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (localValue !== lastCommittedRef.current) {
+      commit(localValue);
+    }
+  }, []);
 
   const showError = touched && error;
   const currentLength = localValue.length;
@@ -265,6 +334,8 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
           value={localValue}
           onChange={handleChange}
           onBlur={handleBlur}
+          onCompositionStart={() => { composingRef.current = true; }}
+          onCompositionEnd={handleCompositionEnd}
           maxLength={maxLength}
           aria-required={required}
           aria-invalid={showError ? true : undefined}
