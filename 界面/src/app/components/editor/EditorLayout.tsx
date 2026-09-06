@@ -497,11 +497,11 @@ export const EditorLayout: React.FC = () => {
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden font-sans text-gray-900">
       {/* Top Navigation */}
       <header className={cn(
-        "bg-[#1A202C] text-white flex items-center justify-between flex-shrink-0 z-30 shadow-md",
-        isMobile ? "h-14 px-3" : "h-16 px-6"
+        "bg-white text-gray-900 border-b border-gray-200 flex items-center justify-between flex-shrink-0 z-30",
+        isMobile ? "h-14 px-3" : "h-16 px-4"
       )}>
-        <div className="flex items-center gap-2 md:gap-4">
-          <Link to="/dashboard" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+        <div className="flex items-center gap-2 md:gap-3">
+          <Link to="/dashboard" className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors">
             <ChevronLeft size={isMobile ? 18 : 20} />
             {!isMobile && (
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
@@ -510,14 +510,14 @@ export const EditorLayout: React.FC = () => {
             )}
           </Link>
           
-          {!isMobile && <div className="h-6 w-px bg-gray-700 mx-2"></div>}
+          {!isMobile && <div className="h-6 w-px bg-gray-200 mx-1"></div>}
           
           <div className="flex flex-col">
             <input 
               value={resumeData.title}
               onChange={(e) => updateResume(activeResumeId, { title: e.target.value })}
               className={cn(
-                "bg-transparent border-none text-white font-bold focus:ring-0 p-0 placeholder-gray-500",
+                "bg-transparent border-none text-gray-900 font-bold focus:ring-0 p-0 placeholder-gray-400",
                 isMobile ? "text-xs w-32" : "text-sm w-48"
               )}
               placeholder="未命名简历"
@@ -531,12 +531,12 @@ export const EditorLayout: React.FC = () => {
                   </>
                 ) : saveStatus === 'error' ? (
                   <>
-                    <AlertTriangle size={10} className="text-red-400" />
-                    <span className="text-red-400">保存失败</span>
+                    <AlertTriangle size={10} className="text-red-500" />
+                    <span className="text-red-500">保存失败</span>
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 size={10} />
+                    <CheckCircle2 size={10} className="text-green-600" />
                     已保存
                   </>
                 )}
@@ -561,7 +561,7 @@ export const EditorLayout: React.FC = () => {
             <div className="relative" ref={exportMenuRef}>
               <button 
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="p-2 text-gray-300 hover:text-white rounded-md hover:bg-gray-800"
+                className="p-2 text-gray-500 hover:text-gray-900 rounded-md hover:bg-gray-100"
               >
                 <Menu size={20} />
               </button>
@@ -612,7 +612,7 @@ export const EditorLayout: React.FC = () => {
               <button
                 onClick={() => undo()}
                 disabled={!canUndo}
-                className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="撤销 (Ctrl+Alt+Z)"
               >
                 <Undo2 size={16} />
@@ -621,7 +621,7 @@ export const EditorLayout: React.FC = () => {
               <button
                 onClick={() => redo()}
                 disabled={!canRedo}
-                className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="重做 (Ctrl+Shift+Z)"
               >
                 <Redo2 size={16} />
@@ -630,7 +630,7 @@ export const EditorLayout: React.FC = () => {
 
               <button 
                 onClick={() => setShowStyleSettings(true)}
-                className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700 hover:bg-gray-800"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-200 hover:bg-gray-50"
                 title="样式设置"
               >
                 <Settings size={16} />
@@ -639,7 +639,7 @@ export const EditorLayout: React.FC = () => {
               
               <button 
                 onClick={() => setShowTemplateModal(true)}
-                className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-700 hover:bg-gray-800"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md text-sm transition-colors border border-gray-200 hover:bg-gray-50"
               >
                 <Layout size={16} />
                 <span className="hidden md:inline">模板</span>
