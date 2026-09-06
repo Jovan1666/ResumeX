@@ -1,54 +1,142 @@
 import React, { useRef, useState, useEffect, useMemo, memo } from 'react';
-import { useResumeStore } from '@/app/store/useResumeStore';
+import { useResumeStore, TEMPLATE_THEME } from '@/app/store/useResumeStore';
 import { TemplateId, ResumeData } from '@/app/types/resume';
-import { ThemeColor } from '@/app/types/theme';
-import { X, Check, Palette, Briefcase, FileText, Sparkles, Award, Building2, Code, TrendingUp, Bot, Factory, Wrench, Calculator, Users, Stethoscope, ShoppingCart, Newspaper, GraduationCap, Clock, Columns2, Wand2, BookOpen, LayoutGrid, Crown, Rocket, BarChart3, Cpu, Megaphone, Monitor, BookMarked, Globe2, Target, Coffee, ScrollText, UserCheck, Leaf, Landmark, ArrowLeft } from 'lucide-react';
+import { X, Check, FileText, Briefcase, Landmark, Code, GraduationCap, Columns2, Globe2, Layers, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/app/lib/utils';
 import { ResumeRenderer } from '@/app/components/templates/ResumeRenderer';
-import { initialResumeData } from '@/app/data/initialData';
 
-// 模板ID → 主题色映射
-const templateThemeMap: Record<TemplateId, ThemeColor> = {
-  tech: 'tech-orange',
-  business: 'business-blue',
-  minimal: 'minimal-bw',
-  vibrant: 'vibrant-red',
-  professional: 'pro-blue',
-  civilService: 'minimal-bw',
-  javaDev: 'tech-orange',
-  operations: 'vibrant-red',
-  aiDev: 'tech-orange',
-  industry: 'tech-orange',
-  engineer: 'tech-orange',
-  accountant: 'business-blue',
-  hr: 'pro-blue',
-  medical: 'business-blue',
-  sales: 'pro-blue',
-  media: 'vibrant-red',
-  teacher: 'pro-blue',
-  timeline: 'emerald-green',
-  twoColumnCompact: 'navy-compact',
-  creative: 'creative-purple',
-  academic: 'minimal-bw',
-  card: 'warm-amber',
-  executive: 'elegant-gold',
-  freshGrad: 'fresh-teal',
-  infographic: 'indigo-data',
-  aiRed: 'vibrant-red',
-  opsOrange: 'warm-amber',
-  fePurple: 'creative-purple',
-  eduDark: 'minimal-bw',
-  enBw: 'minimal-bw',
-  generalRed: 'vibrant-red',
-  javaBlue: 'business-blue',
-  gradBlue: 'business-blue',
-  recruitBk: 'minimal-bw',
-  feGreen: 'emerald-green',
-  civilGray: 'minimal-bw',
-};
+/**
+ * 模板选择器：8 张卡（02 §5.2），缩略图用 ScaledPreview 静态预览（低开销），
+ * 大预览懒加载当前 hover 的那一套。选择模板时同时写入默认主题（§5.4）。
+ */
 
-// 自适应缩放预览组件（缩略图 + 大预览通用）
+// 8 套模板元数据
+const templates: {
+  id: TemplateId;
+  name: string;
+  nameZh: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+  tags: string[];
+}[] = [
+  {
+    id: 'campusClean',
+    name: 'Campus Clean',
+    nameZh: '校招通用',
+    description: '单栏、教育在前、可选右上证件照；应届/实习首选',
+    icon: <GraduationCap size={24} />,
+    color: '#2B6CB0',
+    tags: ['校招', '通用'],
+  },
+  {
+    id: 'jobClean',
+    name: 'Job Clean',
+    nameZh: '社招通用',
+    description: '单栏、工作在前、可选照片；互联网社招首选',
+    icon: <Briefcase size={24} />,
+    color: '#1E4E8C',
+    tags: ['社招', '通用'],
+  },
+  {
+    id: 'navyBiz',
+    name: 'Navy Biz',
+    nameZh: '商务深蓝',
+    description: '深蓝标题线、可切换宋体；金融/商务/国企',
+    icon: <FileText size={24} />,
+    color: '#1E4E8C',
+    tags: ['商务', '金融'],
+  },
+  {
+    id: 'civilFile',
+    name: 'Civil File',
+    nameZh: '体制公文',
+    description: '矩形证件照、可显示政治面貌/籍贯；公务员/事业单位',
+    icon: <Landmark size={24} />,
+    color: '#1A1A1A',
+    tags: ['公务员', '体制内'],
+  },
+  {
+    id: 'techPlain',
+    name: 'Tech Plain',
+    nameZh: '技术简洁',
+    description: '单栏、技能分组、项目技术栈一行 tag；研发岗',
+    icon: <Code size={24} />,
+    color: '#4A5568',
+    tags: ['技术', '研发'],
+  },
+  {
+    id: 'atsMono',
+    name: 'ATS Mono',
+    nameZh: '极简黑白',
+    description: '单栏纯黑、无图标、ATS/网申解析最友好',
+    icon: <Layers size={24} />,
+    color: '#1A1A1A',
+    tags: ['极简', '网申'],
+  },
+  {
+    id: 'compactSplit',
+    name: 'Compact Split',
+    nameZh: '双栏紧凑',
+    description: '左栏浅底（≤28%）、右主经历；信息多但想一页时用',
+    icon: <Columns2 size={24} />,
+    color: '#1E4E8C',
+    tags: ['进阶', '双栏'],
+  },
+  {
+    id: 'enSimple',
+    name: 'EN Simple',
+    nameZh: '英文简洁',
+    description: '英文栏目标题、单栏；外企/留学',
+    icon: <Globe2 size={24} />,
+    color: '#1A1A1A',
+    tags: ['英文', '外企'],
+  },
+];
+
+const DEFAULT_TEMPLATES = templates.filter(t => t.id !== 'compactSplit');
+
+// 静态预览数据（示例数据 + 占位中文「姓名」「意向」，避免空纸与李明）
+function makePreviewData(templateId: TemplateId): ResumeData {
+  return {
+    id: `preview-${templateId}`,
+    title: '示例简历',
+    lastModified: Date.now(),
+    template: templateId,
+    profile: {
+      name: '王小明',
+      title: '前端开发工程师',
+      email: 'wangxm@example.com',
+      phone: '138 0000 1234',
+      location: '北京',
+      wechat: 'wangxm_dev',
+      summary: '5 年 Web 开发经验，熟悉 React/TypeScript 与工程化。',
+      avatar: '',
+      customFields: [],
+    },
+    settings: {
+      themeColor: TEMPLATE_THEME[templateId] ?? 'ink',
+      fontFamily: 'sans',
+      fontSizeScale: 1,
+      lineHeight: 'standard',
+      pageMargin: 'standard',
+      language: 'zh',
+    },
+    modules: [
+      { id: 'edu-1', type: 'education', title: '教育背景', visible: true, items: [
+        { id: 'e1', title: '软件工程 / 本科', subtitle: '华北理工大学', date: '2016.09 - 2020.06', description: '主修：数据结构、操作系统。' } ] },
+      { id: 'exp-1', type: 'experience', title: '工作经历', visible: true, items: [
+        { id: 'x1', title: '前端工程师', subtitle: '某某科技', date: '2021.03 - 至今', description: '• 负责核心产品 Web 端开发。' } ] },
+      { id: 'proj-1', type: 'projects', title: '项目经历', visible: true, items: [
+        { id: 'p1', title: '可视化搭建平台', subtitle: '个人项目', date: '2022.01 - 2023.06', description: '• 基于 React + dnd-kit 实现拖拽编辑器。' } ] },
+      { id: 'skills-1', type: 'skills', title: '专业技能', visible: true, items: [
+        { id: 's1', name: 'React / Vue' }, { id: 's2', name: 'TypeScript' }, { id: 's3', name: 'Node.js' } ] },
+    ],
+  };
+}
+
+// 自适应缩放预览组件（缩略图 + 大预览通用，低成本）
 const ScaledPreview: React.FC<{ templateId: TemplateId; lazy?: boolean }> = memo(({ templateId, lazy = true }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.25);
@@ -74,7 +162,6 @@ const ScaledPreview: React.FC<{ templateId: TemplateId; lazy?: boolean }> = memo
       }
     };
     updateScale();
-    // 防抖 resize 监听，避免高频触发重渲染
     let timer: ReturnType<typeof setTimeout>;
     const debouncedUpdate = () => {
       clearTimeout(timer);
@@ -87,15 +174,7 @@ const ScaledPreview: React.FC<{ templateId: TemplateId; lazy?: boolean }> = memo
     };
   }, [isVisible]);
 
-  const previewData = useMemo<ResumeData>(() => ({
-    ...initialResumeData,
-    id: `preview-${templateId}`,
-    template: templateId,
-    settings: {
-      ...initialResumeData.settings,
-      themeColor: templateThemeMap[templateId],
-    },
-  }), [templateId]);
+  const previewData = useMemo(() => makePreviewData(templateId), [templateId]);
 
   return (
     <div ref={containerRef} className="w-full aspect-[210/297] relative overflow-hidden bg-gray-50 rounded-lg">
@@ -119,17 +198,11 @@ const ScaledPreview: React.FC<{ templateId: TemplateId; lazy?: boolean }> = memo
 });
 ScaledPreview.displayName = 'ScaledPreview';
 
-// 缩略图卡片（列表模式用）
+// 缩略图卡片（不是按钮——外层 TemplateCard 已是 button，避免嵌套）
 const TemplatePreviewThumbnail: React.FC<{ templateId: TemplateId }> = memo(({ templateId }) => {
   return (
-    <div className="mb-4 relative rounded-lg overflow-hidden shadow-sm border border-gray-100">
+    <div className="mb-4 relative rounded-lg overflow-hidden shadow-sm border border-gray-100 w-full text-left">
       <ScaledPreview templateId={templateId} lazy={true} />
-      {/* Hover Overlay */}
-      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
-        <span className="bg-white text-gray-900 px-4 py-2 rounded-full text-sm font-medium transform translate-y-2 group-hover:translate-y-0 transition-transform">
-          预览此模板
-        </span>
-      </div>
     </div>
   );
 });
@@ -140,389 +213,72 @@ interface TemplateModalProps {
   onClose: () => void;
 }
 
-const templates: {
-  id: TemplateId;
-  name: string;
-  nameZh: string;
-  description: string;
-  icon: React.ReactNode;
-  color: string;
-  tags: string[];
-}[] = [
-  {
-    id: 'tech',
-    name: 'Tech Orange',
-    nameZh: '科技橙红',
-    description: '适合IT、互联网、技术岗位',
-    icon: <Palette size={24} />,
-    color: '#E53E3E',
-    tags: ['技术', '互联网']
-  },
-  {
-    id: 'business',
-    name: 'Business Blue',
-    nameZh: '商务浅蓝',
-    description: '适合商务、金融、管理岗位',
-    icon: <Briefcase size={24} />,
-    color: '#3182CE',
-    tags: ['商务', '校招']
-  },
-  {
-    id: 'minimal',
-    name: 'Minimal B&W',
-    nameZh: '极简黑白',
-    description: '适合财务、法务、传统行业',
-    icon: <FileText size={24} />,
-    color: '#1A202C',
-    tags: ['极简', '传统']
-  },
-  {
-    id: 'vibrant',
-    name: 'Vibrant Red',
-    nameZh: '活力红',
-    description: '适合运营、市场、创意岗位',
-    icon: <Sparkles size={24} />,
-    color: '#C53030',
-    tags: ['创意', '运营']
-  },
-  {
-    id: 'professional',
-    name: 'Professional',
-    nameZh: '双栏专业',
-    description: '适合资深人士、管理层',
-    icon: <Award size={24} />,
-    color: '#2B6CB0',
-    tags: ['专业', '高端']
-  },
-  {
-    id: 'civilService',
-    name: 'Civil Service',
-    nameZh: '公务员/事业单位',
-    description: '适合公务员、事业单位、政府机关',
-    icon: <Building2 size={24} />,
-    color: '#4A5568',
-    tags: ['公务员', '事业单位']
-  },
-  {
-    id: 'javaDev',
-    name: 'Java Developer',
-    nameZh: 'Java后端开发',
-    description: '适合Java、后端、服务端开发',
-    icon: <Code size={24} />,
-    color: '#E67E22',
-    tags: ['后端', 'Java']
-  },
-  {
-    id: 'operations',
-    name: 'Operations',
-    nameZh: '运营专员',
-    description: '适合用户运营、内容运营、活动运营',
-    icon: <TrendingUp size={24} />,
-    color: '#E74C3C',
-    tags: ['运营', '增长']
-  },
-  {
-    id: 'aiDev',
-    name: 'AI Developer',
-    nameZh: 'AI应用开发',
-    description: '适合AI工程师、算法工程师、大模型开发',
-    icon: <Bot size={24} />,
-    color: '#C0392B',
-    tags: ['AI', '算法']
-  },
-  {
-    id: 'industry',
-    name: 'Industry General',
-    nameZh: '各行业通用',
-    description: '适合各行业通用，风格简洁专业',
-    icon: <Factory size={24} />,
-    color: '#C0392B',
-    tags: ['通用', '简洁']
-  },
-  {
-    id: 'engineer',
-    name: 'Engineer',
-    nameZh: '工程师',
-    description: '适合车辆工程、机械工程、硬件研发',
-    icon: <Wrench size={24} />,
-    color: '#E74C3C',
-    tags: ['工程', '研发']
-  },
-  {
-    id: 'accountant',
-    name: 'Accountant',
-    nameZh: '会计财务',
-    description: '适合会计、财务、审计岗位',
-    icon: <Calculator size={24} />,
-    color: '#1E6B7B',
-    tags: ['财务', '会计']
-  },
-  {
-    id: 'hr',
-    name: 'HR Specialist',
-    nameZh: '人事专员',
-    description: '适合人事、行政、招聘岗位',
-    icon: <Users size={24} />,
-    color: '#667EEA',
-    tags: ['人事', '行政']
-  },
-  {
-    id: 'medical',
-    name: 'Medical',
-    nameZh: '医疗专业',
-    description: '适合医生、护士、医疗技术人员',
-    icon: <Stethoscope size={24} />,
-    color: '#1E5B7B',
-    tags: ['医疗', '医学']
-  },
-  {
-    id: 'sales',
-    name: 'Sales',
-    nameZh: '销售岗位',
-    description: '适合销售、业务、商务拓展',
-    icon: <ShoppingCart size={24} />,
-    color: '#1E3A5F',
-    tags: ['销售', '商务']
-  },
-  {
-    id: 'media',
-    name: 'Media',
-    nameZh: '新闻传播',
-    description: '适合新闻、传媒、编辑、记者',
-    icon: <Newspaper size={24} />,
-    color: '#1E3A5F',
-    tags: ['传媒', '新闻']
-  },
-  {
-    id: 'teacher',
-    name: 'Teacher',
-    nameZh: '教师',
-    description: '适合教师、培训师、教育工作者',
-    icon: <GraduationCap size={24} />,
-    color: '#1E3A5F',
-    tags: ['教育', '教师']
-  },
-  {
-    id: 'timeline',
-    name: 'Timeline',
-    nameZh: '时间线风格',
-    description: '垂直时间线布局，清晰展示职业轨迹',
-    icon: <Clock size={24} />,
-    color: '#059669',
-    tags: ['时间线', '清晰']
-  },
-  {
-    id: 'twoColumnCompact',
-    name: 'Two Column Compact',
-    nameZh: '经典双栏紧凑',
-    description: '左栏侧边信息+右栏主内容，信息密度高',
-    icon: <Columns2 size={24} />,
-    color: '#1E3A5F',
-    tags: ['双栏', '紧凑']
-  },
-  {
-    id: 'creative',
-    name: 'Creative',
-    nameZh: '创意设计',
-    description: '渐变色彩头部+卡片式内容，设计感强',
-    icon: <Wand2 size={24} />,
-    color: '#7C3AED',
-    tags: ['创意', '设计']
-  },
-  {
-    id: 'academic',
-    name: 'Academic',
-    nameZh: '学术简约',
-    description: '衬线字体、密集信息，适合学术/留学申请',
-    icon: <BookOpen size={24} />,
-    color: '#374151',
-    tags: ['学术', '留学']
-  },
-  {
-    id: 'card',
-    name: 'Card Module',
-    nameZh: '卡片模块',
-    description: '模块化卡片网格布局，清新活泼',
-    icon: <LayoutGrid size={24} />,
-    color: '#D97706',
-    tags: ['卡片', '模块化']
-  },
-  {
-    id: 'executive',
-    name: 'Executive',
-    nameZh: '高端精英',
-    description: '大量留白+衬线字体+金色点缀，高管风格',
-    icon: <Crown size={24} />,
-    color: '#92400E',
-    tags: ['高端', '精英']
-  },
-  {
-    id: 'freshGrad',
-    name: 'Fresh Graduate',
-    nameZh: '应届生专属',
-    description: '教育背景优先，专为应届毕业生设计',
-    icon: <Rocket size={24} />,
-    color: '#0D9488',
-    tags: ['应届生', '校招']
-  },
-  {
-    id: 'infographic',
-    name: 'Infographic',
-    nameZh: '信息图表',
-    description: '技能柱状图+数据卡片+时间线，数据可视化',
-    icon: <BarChart3 size={24} />,
-    color: '#4F46E5',
-    tags: ['图表', '可视化']
-  },
-  {
-    id: 'aiRed',
-    name: 'AI Red',
-    nameZh: 'AI应用开发·红',
-    description: '红色主题+头像，适合AI/算法/大模型工程师',
-    icon: <Cpu size={24} />,
-    color: '#DC2626',
-    tags: ['AI', '技术']
-  },
-  {
-    id: 'opsOrange',
-    name: 'Ops Orange',
-    nameZh: '运营·橙',
-    description: '橙色主题+头像，适合用户/内容/活动运营',
-    icon: <Megaphone size={24} />,
-    color: '#EA580C',
-    tags: ['运营', '增长']
-  },
-  {
-    id: 'fePurple',
-    name: 'Frontend Purple',
-    nameZh: '前端工程师·紫',
-    description: '紫色主题+照片，适合前端/全栈工程师',
-    icon: <Monitor size={24} />,
-    color: '#7C3AED',
-    tags: ['技术', '前端']
-  },
-  {
-    id: 'eduDark',
-    name: 'Education Dark',
-    nameZh: '教育培训·深灰',
-    description: '深灰主题无头像，极度紧凑高信息密度',
-    icon: <BookMarked size={24} />,
-    color: '#1F2937',
-    tags: ['教育', '通用']
-  },
-  {
-    id: 'enBw',
-    name: 'English B&W',
-    nameZh: '英文简历·黑白',
-    description: '经典黑白学术风格，LaTeX排版感，适合留学/外企',
-    icon: <Globe2 size={24} />,
-    color: '#111827',
-    tags: ['英文', '学术']
-  },
-  {
-    id: 'generalRed',
-    name: 'General Red',
-    nameZh: '行业通用·红',
-    description: '红色主题无头像，自我评价置顶，各行业通用',
-    icon: <Target size={24} />,
-    color: '#DC2626',
-    tags: ['通用', '简洁']
-  },
-  {
-    id: 'javaBlue',
-    name: 'Java Blue',
-    nameZh: 'Java实习·蓝',
-    description: '蓝色主题无头像，岗位名大标题，适合后端实习',
-    icon: <Coffee size={24} />,
-    color: '#2563EB',
-    tags: ['技术', 'Java']
-  },
-  {
-    id: 'gradBlue',
-    name: 'Grad Exam Blue',
-    nameZh: '研究生复试·蓝',
-    description: '蓝色主题+头像+初试成绩表，适合考研复试',
-    icon: <ScrollText size={24} />,
-    color: '#2563EB',
-    tags: ['学术', '考研']
-  },
-  {
-    id: 'recruitBk',
-    name: 'Recruit Black',
-    nameZh: '校招社招·黑',
-    description: '纯黑极简无装饰，最干净简约，校招社招通用',
-    icon: <UserCheck size={24} />,
-    color: '#111827',
-    tags: ['校招', '极简']
-  },
-  {
-    id: 'feGreen',
-    name: 'Frontend Green',
-    nameZh: '前端工程师·绿',
-    description: '绿色背景色块标题+照片，技术栈标签展示',
-    icon: <Leaf size={24} />,
-    color: '#16A34A',
-    tags: ['技术', '前端']
-  },
-  {
-    id: 'civilGray',
-    name: 'Civil Gray',
-    nameZh: '公务员·灰',
-    description: '深灰主题+照片，庄重正式，附致谢段落',
-    icon: <Landmark size={24} />,
-    color: '#374151',
-    tags: ['公务员', '事业单位']
-  }
-];
-
-// 标签筛选分类
-const filterTags = [
-  { label: '全部', value: '' },
-  { label: '技术', value: '技术' },
-  { label: '商务', value: '商务' },
-  { label: '创意', value: '创意' },
-  { label: '学术', value: '学术' },
-  { label: '校招', value: '校招' },
-  { label: '通用', value: '通用' },
-];
+// 模板卡组件
+const TemplateCard: React.FC<{
+  t: typeof templates[number];
+  current: boolean;
+  onPreview: () => void;
+}> = memo(({ t, current, onPreview }) => (
+  <button
+    type="button"
+    onClick={onPreview}
+    className={cn(
+      "group relative p-4 rounded-xl border-2 transition-all text-left hover:shadow-lg",
+      current ? "border-blue-500 bg-blue-50 shadow-md" : "border-gray-200 hover:border-gray-300 bg-white"
+    )}
+  >
+    {current && (
+      <div className="absolute -top-2 -right-2 bg-blue-500 text-white p-1 rounded-full shadow-lg z-10">
+        <Check size={14} />
+      </div>
+    )}
+    <TemplatePreviewThumbnail templateId={t.id} />
+    <div className="flex items-start justify-between">
+      <div className="min-w-0 flex-1">
+        <h3 className="font-bold text-gray-900">{t.nameZh}</h3>
+        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{t.description}</p>
+      </div>
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ml-2"
+        style={{ backgroundColor: t.color }}
+      >
+        {t.icon}
+      </div>
+    </div>
+    <div className="flex gap-1 mt-2">
+      {t.tags.map((tag) => (
+        <span key={tag} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+          {tag}
+        </span>
+      ))}
+    </div>
+  </button>
+));
+TemplateCard.displayName = 'TemplateCard';
 
 export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose }) => {
-  // 细粒度选择器：仅订阅当前模板 ID，避免 store 其他状态变化触发重渲染
   const currentTemplate = useResumeStore(state => state.resumes[state.activeResumeId]?.template);
   const setTemplate = useResumeStore(state => state.setTemplate);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('');
-  // null = 列表模式，有值 = 预览模式
+  const [showMore, setShowMore] = useState(false);
   const [previewTarget, setPreviewTarget] = useState<TemplateId | null>(null);
 
-  // 关闭弹窗时重置
   useEffect(() => {
     if (!isOpen) {
-      setSearchQuery('');
-      setActiveFilter('');
       setPreviewTarget(null);
+      setShowMore(false);
     }
   }, [isOpen]);
 
   const previewInfo = previewTarget ? templates.find(t => t.id === previewTarget) : null;
   const isCurrentTemplate = previewTarget === currentTemplate;
 
+  // 选择模板：setTemplate 内部会同时写默认主题（02 §5.4）
   const handleConfirmSwitch = () => {
     if (!previewTarget) return;
     setTemplate(previewTarget);
     setPreviewTarget(null);
     onClose();
   };
-
-  // 过滤模板（使用 useMemo 避免每次渲染都重新计算 35 个模板的过滤）
-  const filteredTemplates = useMemo(() => templates.filter(t => {
-    const matchesSearch = !searchQuery || 
-      t.nameZh.includes(searchQuery) || 
-      t.description.includes(searchQuery) ||
-      t.tags.some(tag => tag.includes(searchQuery));
-    const matchesFilter = !activeFilter || t.tags.some(tag => tag.includes(activeFilter));
-    return matchesSearch && matchesFilter;
-  }), [searchQuery, activeFilter]);
 
   return (
     <AnimatePresence>
@@ -545,7 +301,6 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
             {/* ========== 预览模式 ========== */}
             {previewTarget && previewInfo ? (
               <>
-                {/* 预览模式 Header */}
                 <div className="p-4 border-b border-gray-100 flex items-center gap-3">
                   <button
                     onClick={() => setPreviewTarget(null)}
@@ -562,18 +317,14 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                   </button>
                 </div>
 
-                {/* 预览主体：左侧大预览 + 右侧信息面板 */}
                 <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-                  {/* 左侧：大预览图 */}
                   <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-gray-50">
                     <div className="w-full max-w-[420px]">
                       <ScaledPreview templateId={previewTarget} lazy={false} />
                     </div>
                   </div>
 
-                  {/* 右侧：信息 + 操作按钮 */}
                   <div className="w-full md:w-[260px] border-t md:border-t-0 md:border-l border-gray-100 p-5 flex flex-col gap-4 shrink-0 bg-white">
-                    {/* 模板信息 */}
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0"
@@ -586,30 +337,20 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                         <p className="text-xs text-gray-500 mt-0.5">{previewInfo.name}</p>
                       </div>
                     </div>
-
                     <p className="text-sm text-gray-600 leading-relaxed">{previewInfo.description}</p>
-
-                    {/* 标签 */}
                     <div className="flex flex-wrap gap-1.5">
                       {previewInfo.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600"
-                        >
+                        <span key={tag} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
                           {tag}
                         </span>
                       ))}
                     </div>
-
-                    {/* 当前状态 */}
                     {isCurrentTemplate && (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700">
                         <Check size={16} />
                         <span className="text-sm font-medium">当前使用中</span>
                       </div>
                     )}
-
-                    {/* 操作按钮 */}
                     <div className="mt-auto flex flex-col gap-2">
                       {!isCurrentTemplate && (
                         <button
@@ -626,9 +367,8 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                         返回模板列表
                       </button>
                     </div>
-
                     <p className="text-[11px] text-gray-400 text-center">
-                      切换模板不会丢失已填写的内容
+                      切换模板会自动配合同色主题，已填内容不丢失
                     </p>
                   </div>
                 </div>
@@ -636,7 +376,6 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
             ) : (
               /* ========== 列表模式 ========== */
               <>
-                {/* Header + Search + Filter */}
                 <div className="p-5 border-b border-gray-100 space-y-3">
                   <div className="flex justify-between items-center">
                     <div>
@@ -647,90 +386,34 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                       <X size={20} className="text-gray-500" />
                     </button>
                   </div>
-                  {/* 搜索框 */}
-                  <input
-                    type="text"
-                    placeholder="搜索模板名称、描述或标签..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
-                  />
-                  {/* 标签筛选 */}
-                  <div className="flex flex-wrap gap-2">
-                    {filterTags.map(tag => (
-                      <button
-                        key={tag.value}
-                        onClick={() => setActiveFilter(activeFilter === tag.value ? '' : tag.value)}
-                        className={cn(
-                          "px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                          activeFilter === tag.value
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        )}
-                      >
-                        {tag.label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
-                {/* 模板卡片列表 */}
                 <div className="flex-1 overflow-y-auto p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredTemplates.map((template) => (
-                      <button
+                    {(showMore ? templates : DEFAULT_TEMPLATES).map((template) => (
+                      <TemplateCard
                         key={template.id}
-                        onClick={() => setPreviewTarget(template.id)}
-                        className={cn(
-                          "group relative p-4 rounded-xl border-2 transition-all text-left hover:shadow-lg",
-                          currentTemplate === template.id
-                            ? "border-blue-500 bg-blue-50 shadow-md"
-                            : "border-gray-200 hover:border-gray-300 bg-white"
-                        )}
-                      >
-                        {/* 当前模板标记 */}
-                        {currentTemplate === template.id && (
-                          <div className="absolute -top-2 -right-2 bg-blue-500 text-white p-1 rounded-full shadow-lg z-10">
-                            <Check size={14} />
-                          </div>
-                        )}
-
-                        {/* 缩略图 */}
-                        <TemplatePreviewThumbnail templateId={template.id} />
-
-                        {/* 信息 */}
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-gray-900">{template.nameZh}</h3>
-                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{template.description}</p>
-                          </div>
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ml-2"
-                            style={{ backgroundColor: template.color }}
-                          >
-                            {template.icon}
-                          </div>
-                        </div>
-
-                        {/* 标签 */}
-                        <div className="flex gap-1 mt-2">
-                          {template.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </button>
+                        t={template}
+                        current={currentTemplate === template.id}
+                        onPreview={() => setPreviewTarget(template.id)}
+                      />
                     ))}
                   </div>
+
+                  {/* 更多（compactSplit 藏这里：R5 网申双栏解析差） */}
+                  {!showMore && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMore(true)}
+                      className="mt-4 w-full py-2.5 rounded-lg border border-dashed border-gray-300 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+                    >
+                      更多模板（进阶）
+                    </button>
+                  )}
                 </div>
 
-                {/* Footer */}
                 <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-500">
-                  提示：更换模板不会丢失任何数据，您可以随时切换回来
+                  提示：更换模板会自动切换配套主题，数据不丢失
                 </div>
               </>
             )}
