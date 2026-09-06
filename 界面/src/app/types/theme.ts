@@ -103,7 +103,7 @@ export const themes: Record<ThemeColor, ThemeConfig> = {
 // 未知主题 fallback ink（禁止 tech-orange）
 export const FALLBACK_THEME: ThemeColor = 'ink';
 
-/** 8 套默认模板 → 默认主题（02 §5.4） */
+/** 14 套默认模板 → 默认主题（02 §5.4 + 09 新增） */
 export const TEMPLATE_THEME_DEFAULT: Record<TemplateId, ThemeColor> = {
   campusClean: 'campus',
   jobClean: 'navy',
@@ -113,6 +113,12 @@ export const TEMPLATE_THEME_DEFAULT: Record<TemplateId, ThemeColor> = {
   atsMono: 'ink',
   compactSplit: 'navy',
   enSimple: 'ink',
+  bannerCampus: 'campus',
+  navySidebar: 'navy',
+  lineFrame: 'ink',
+  greenFresh: 'pine',
+  sidebarRight: 'campus',
+  twoColumnEqual: 'slate',
 };
 
 export interface GlobalSettings {

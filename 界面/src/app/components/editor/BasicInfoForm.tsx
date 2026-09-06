@@ -191,6 +191,23 @@ export const BasicInfoForm = memo(() => {
                 value={profile.title}
                 onChange={(e) => updateProfile('title', e.target.value)}
               />
+              {/* 照片尺寸快捷设置（位置由模板决定：右上 / 横幅顶部居中） */}
+              {avatarUrl && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-400">照片尺寸</span>
+                  <select
+                    value={useResumeStore.getState().resumes[useResumeStore.getState().activeResumeId]?.settings.photoSize || 'md'}
+                    onChange={(e) => useResumeStore.getState().updateSettings({ photoSize: e.target.value as 'sm' | 'md' | 'lg' })}
+                    className="border border-gray-200 rounded px-1.5 py-1 text-xs text-gray-600"
+                  >
+                    <option value="sm">小</option>
+                    <option value="md">中（证件照）</option>
+                    <option value="lg">大</option>
+                  </select>
+                  <span className="text-gray-300">·</span>
+                  <span className="text-gray-400">形状在样式面板调</span>
+                </div>
+              )}
             </div>
           </div>
 

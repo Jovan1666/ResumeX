@@ -1,6 +1,6 @@
 import { GlobalSettings } from './theme';
 
-// 8 套模板（02 §5.2）。旧 35 套 id 不再作为 TemplateId 存在，由 persist migrate 映射。
+// 14 套模板（02 §5.2 原有 8 套 + 09 新增 6 套辨识度骨架）。旧 35 套 id 不再作为 TemplateId 存在，由 persist migrate 映射。
 export type TemplateId =
   | 'campusClean'   // 校招通用
   | 'jobClean'      // 社招通用
@@ -9,7 +9,13 @@ export type TemplateId =
   | 'techPlain'     // 技术简洁
   | 'atsMono'       // 极简黑白
   | 'compactSplit'  // 双栏紧凑
-  | 'enSimple';     // 英文简洁
+  | 'enSimple'      // 英文简洁
+  | 'bannerCampus'  // 顶部横幅校招（09）
+  | 'navySidebar'   // 深蓝侧栏商务（09）
+  | 'lineFrame'     // 细线框档案（09）
+  | 'greenFresh'    // 浅底标题清新（09）
+  | 'sidebarRight'  // 右栏侧栏（09）
+  | 'twoColumnEqual'; // 等宽双列（09）
 
 export type ModuleType = 'experience' | 'education' | 'projects' | 'campus' | 'honors' | 'skills' | 'custom';
 

@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, memo } from 'react';
 import { useResumeStore, TEMPLATE_THEME } from '@/app/store/useResumeStore';
 import { TemplateId, ResumeData } from '@/app/types/resume';
-import { X, Check, FileText, Briefcase, Landmark, Code, GraduationCap, Columns2, Globe2, Layers, ArrowLeft } from 'lucide-react';
+import { X, Check, FileText, Briefcase, Landmark, Code, GraduationCap, Columns2, Globe2, Layers, ArrowLeft, PanelLeft, PanelRight, Frame, Leaf, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/app/lib/utils';
 import { ResumeRenderer } from '@/app/components/templates/ResumeRenderer';
@@ -93,9 +93,66 @@ const templates: {
     color: '#1A1A1A',
     tags: ['英文', '外企'],
   },
+  {
+    id: 'bannerCampus',
+    name: 'Banner Campus',
+    nameZh: '顶部横幅校招',
+    description: '顶部主题色横幅 + 教育在前；校招辨识度高',
+    icon: <Sparkles size={24} />,
+    color: '#2B6CB0',
+    tags: ['校招', '横幅'],
+  },
+  {
+    id: 'navySidebar',
+    name: 'Navy Sidebar',
+    nameZh: '深蓝侧栏商务',
+    description: '左 20% 深蓝侧栏（联系方式/技能白字）+ 右主经历；金融/商务',
+    icon: <PanelLeft size={24} />,
+    color: '#1E3A5F',
+    tags: ['商务', '侧栏'],
+  },
+  {
+    id: 'lineFrame',
+    name: 'Line Frame',
+    nameZh: '细线框档案',
+    description: '四周细线框 + 姓名居中；公务员/事业单位端庄版',
+    icon: <Frame size={24} />,
+    color: '#1A1A1A',
+    tags: ['体制内', '档案'],
+  },
+  {
+    id: 'greenFresh',
+    name: 'Green Fresh',
+    nameZh: '浅底标题清新',
+    description: '栏目标题浅底色块；教育/环保/医疗清新风',
+    icon: <Leaf size={24} />,
+    color: '#2F6F4E',
+    tags: ['清新', '教育'],
+  },
+  {
+    id: 'sidebarRight',
+    name: 'Sidebar Right',
+    nameZh: '右栏侧栏',
+    description: '主经历在左 70% + 右 30% 浅底侧栏；阅读顺序友好',
+    icon: <PanelRight size={24} />,
+    color: '#2B6CB0',
+    tags: ['双栏', '侧栏'],
+  },
+  {
+    id: 'twoColumnEqual',
+    name: 'Two Column Equal',
+    nameZh: '等宽双列',
+    description: '正文 50/50 两列并行；信息多但想一页',
+    icon: <Columns2 size={24} />,
+    color: '#4A5568',
+    tags: ['双栏', '紧凑'],
+  },
 ];
 
-const DEFAULT_TEMPLATES = templates.filter(t => t.id !== 'compactSplit');
+// 默认展示的模板（主列表干净）+「更多」进阶模板（双栏/侧栏类）
+const MORE_ID_SET = new Set<string>(['compactSplit', 'navySidebar', 'sidebarRight', 'twoColumnEqual']);
+const DEFAULT_TEMPLATES = templates.filter(t => !MORE_ID_SET.has(t.id));
+const MORE_TEMPLATES = templates.filter(t => MORE_ID_SET.has(t.id));
 
 // 静态预览数据（示例数据 + 占位中文「姓名」「意向」，避免空纸与李明）
 function makePreviewData(templateId: TemplateId): ResumeData {
@@ -390,7 +447,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
 
                 <div className="flex-1 overflow-y-auto p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(showMore ? templates : DEFAULT_TEMPLATES).map((template) => (
+                    {(showMore ? MORE_TEMPLATES : DEFAULT_TEMPLATES).map((template) => (
                       <TemplateCard
                         key={template.id}
                         t={template}
@@ -400,16 +457,14 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                     ))}
                   </div>
 
-                  {/* 更多（compactSplit 藏这里：R5 网申双栏解析差） */}
-                  {!showMore && (
-                    <button
-                      type="button"
-                      onClick={() => setShowMore(true)}
-                      className="mt-4 w-full py-2.5 rounded-lg border border-dashed border-gray-300 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
-                    >
-                      更多模板（进阶）
-                    </button>
-                  )}
+                  {/* 更多（进阶模板：双栏/侧栏类） */}
+                  <button
+                    type="button"
+                    onClick={() => setShowMore(!showMore)}
+                    className="mt-4 w-full py-2.5 rounded-lg border border-dashed border-gray-300 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+                  >
+                    {showMore ? '← 返回常规模板' : '更多模板（双栏 / 侧栏 / 进阶）'}
+                  </button>
                 </div>
 
                 <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-500">

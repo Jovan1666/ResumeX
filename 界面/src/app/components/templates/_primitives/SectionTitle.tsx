@@ -9,7 +9,7 @@ import React from 'react';
  */
 export const SectionTitle: React.FC<{
   title: string;
-  variant?: 'line' | 'bar' | 'plain';
+  variant?: 'line' | 'bar' | 'plain' | 'bg';
   sizePt?: number;
   colorVar?: string;
   className?: string;
@@ -17,6 +17,25 @@ export const SectionTitle: React.FC<{
   showHeading?: boolean;
 }> = ({ title, variant = 'line', sizePt = 12.5, colorVar = 'var(--color-primary)', className = '', showHeading = true }) => {
   if (!showHeading) return null;
+  if (variant === 'bg') {
+    // 浅底小色块标题（主题色 10% 透明度底 + 深色文字）
+    return (
+      <div className={`mb-2 ${className}`}>
+        <h3
+          className="font-bold inline-block"
+          style={{
+            fontSize: `${sizePt}pt`,
+            color: '#111',
+            backgroundColor: `color-mix(in srgb, ${colorVar} 12%, white)`,
+            padding: '1.5pt 5pt',
+            borderRadius: '2pt',
+          }}
+        >
+          {title}
+        </h3>
+      </div>
+    );
+  }
   if (variant === 'bar') {
     return (
       <div className={`flex items-center gap-2 mb-1.5 ${className}`}>

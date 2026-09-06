@@ -205,6 +205,8 @@ export const ModuleItem = memo(({ module, expanded, onExpand }: ModuleItemProps)
     <div 
       ref={setNodeRef} 
       style={style} 
+      data-module-id={module.id}
+      data-module-type={module.type}
       className={cn(
         "bg-white rounded-lg border border-gray-200 shadow-sm transition-all mb-3",
         isDragging && "shadow-xl ring-2 ring-blue-500 bg-blue-50"

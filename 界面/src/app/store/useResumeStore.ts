@@ -119,7 +119,7 @@ export const THEME_COLOR_MIGRATE: Record<string, ThemeColor> = {
   'emerald-green': 'pine',
 };
 
-/** 8 套默认模板 → 主题（02 §5.4） */
+/** 12 套默认模板 → 主题（02 §5.4 + 09 新增） */
 export const TEMPLATE_THEME: Record<TemplateId, ThemeColor> = {
   campusClean: 'campus',
   jobClean: 'navy',
@@ -129,6 +129,12 @@ export const TEMPLATE_THEME: Record<TemplateId, ThemeColor> = {
   atsMono: 'ink',
   compactSplit: 'navy',
   enSimple: 'ink',
+  bannerCampus: 'campus',
+  navySidebar: 'navy',
+  lineFrame: 'ink',
+  greenFresh: 'pine',
+  sidebarRight: 'campus',
+  twoColumnEqual: 'slate',
 };
 
 /** 单人简历数据迁移：模板、主题、字段补齐 */

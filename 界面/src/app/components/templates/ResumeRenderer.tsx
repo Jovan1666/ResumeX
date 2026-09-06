@@ -15,6 +15,12 @@ const templateLoaders: Record<TemplateId, () => Promise<{ default: React.Compone
   atsMono: () => import('./AtsMonoTemplate').then(m => ({ default: m.AtsMonoTemplate })),
   compactSplit: () => import('./CompactSplitTemplate').then(m => ({ default: m.CompactSplitTemplate })),
   enSimple: () => import('./EnSimpleTemplate').then(m => ({ default: m.EnSimpleTemplate })),
+  bannerCampus: () => import('./BannerCampusTemplate').then(m => ({ default: m.BannerCampusTemplate })),
+  navySidebar: () => import('./NavySidebarTemplate').then(m => ({ default: m.NavySidebarTemplate })),
+  lineFrame: () => import('./LineFrameTemplate').then(m => ({ default: m.LineFrameTemplate })),
+  greenFresh: () => import('./GreenFreshTemplate').then(m => ({ default: m.GreenFreshTemplate })),
+  sidebarRight: () => import('./SidebarRightTemplate').then(m => ({ default: m.SidebarRightTemplate })),
+  twoColumnEqual: () => import('./TwoColumnEqualTemplate').then(m => ({ default: m.TwoColumnEqualTemplate })),
 };
 
 // 缓存已创建的 lazy 组件，避免重复创建

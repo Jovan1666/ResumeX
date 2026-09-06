@@ -11,6 +11,25 @@ import { ResumeRenderer } from '@/app/components/templates/ResumeRenderer';
 import { ResumeData } from '@/app/types/resume';
 import { QuickStartWizard } from '@/app/components/QuickStartWizard';
 import { QuickStartPreset } from '@/app/data/quickStartPresets';
+import { TemplateId } from '@/app/types/resume';
+
+// 模板中文名（仪表盘卡显示用）
+const TEMPLATE_NAME_ZH: Record<TemplateId, string> = {
+  campusClean: '校招通用',
+  jobClean: '社招通用',
+  navyBiz: '商务深蓝',
+  civilFile: '体制公文',
+  techPlain: '技术简洁',
+  atsMono: '极简黑白',
+  compactSplit: '双栏紧凑',
+  enSimple: '英文简洁',
+  bannerCampus: '横幅校招',
+  navySidebar: '深蓝侧栏',
+  lineFrame: '细线框',
+  greenFresh: '浅底标题',
+  sidebarRight: '右栏侧栏',
+  twoColumnEqual: '等宽双列',
+};
 
 // 简历卡片缩略图预览
 const ResumeCardPreview: React.FC<{ data: ResumeData }> = memo(({ data }) => {
@@ -164,7 +183,21 @@ export const Dashboard: React.FC = () => {
             </div>
             简历制作
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="导出备份"
+            >
+              <Download size={18} />
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="导入备份"
+            >
+              <Upload size={18} />
+            </button>
             <button 
               onClick={() => setShowSettings(true)}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -174,7 +207,7 @@ export const Dashboard: React.FC = () => {
             </button>
             <button 
               onClick={handleCreateNew}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2"
             >
               <Plus size={16} />
               新建简历
@@ -282,7 +315,7 @@ export const Dashboard: React.FC = () => {
                       {formatDistanceToNow(resume.lastModified, { addSuffix: true, locale: zhCN })}
                     </span>
                     <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-500">
-                      {resume.template.charAt(0).toUpperCase() + resume.template.slice(1)}
+                      {TEMPLATE_NAME_ZH[resume.template] || resume.template}
                     </span>
                   </div>
                 </div>
