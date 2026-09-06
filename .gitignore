@@ -36,12 +36,12 @@ coverage/
 
 # Build/test artifacts
 .vite/
-*.d.ts
 *.tsbuildinfo
 .playwright-mcp/
 .mimosa/
 界面/.mimosa/
 界面/vite.config.d.ts
+界面/tsconfig.node.tsbuildinfo
 
 # Misc
 *.local

@@ -1,0 +1,40 @@
+# ResumeX 发版流程：tag v* → 构建 NSIS 安装包 → 发布 GitHub Release（exe + latest.yml + blockmap）
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            界面/package-lock.json
+            package-lock.json
+
+      - name: 安装根目录依赖
+        run: npm ci
+        working-directory: ./
+
+      - name: 安装界面依赖
+        run: npm ci
+        working-directory: 界面
+
+      - name: 构建并发布安装包
+        run: node build-setup.js --publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ./

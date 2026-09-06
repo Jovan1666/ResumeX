@@ -1,161 +1,77 @@
 # ResumeX - 免费专业简历制作工具
 
-一款开源免费的在线简历制作工具，支持 35+ 精美模板、实时预览、多格式导出，完全本地运行，数据安全可控。
+一款开源免费的中文简历制作软件（Windows 桌面应用为主，浏览器为辅）。支持 8 套国内简历模板、实时预览、PDF / Word / PNG 导出、GitHub 自动更新，所有数据本地存储，无需注册登录。
 
-## 特性
+## 快速开始（推荐：装 Windows 安装包）
 
-- **35+ 精美模板** — 覆盖技术、商务、创意、学术、校招等多种风格
-- **实时预览** — 左侧编辑，右侧即时预览，所见即所得
-- **多格式导出** — 支持 PDF、PNG、Word(.docx) 三种格式
-- **导出更稳健** — 自动清理非法文件名字符，避免导出下载失败
-- **完整性检查** — 客观检查清单，确保简历信息完整
-- **数据本地存储** — 所有数据保存在浏览器中，不上传服务器
-- **多简历管理** — 支持创建、复制、删除多份简历
-- **模块拖拽排序** — 自由拖拽调整简历模块顺序
-- **A4 页面指示** — 清晰的分页线和页数提示
-- **撤销/重做** — Ctrl+Z / Ctrl+Shift+Z 快速操作
-- **样式精调** — 字体大小/行间距/页边距均支持自定义精确调节
-- **移动端适配** — 手机/平板也能编辑简历
-- **岗位参考范文** — 内置多行业工作描述参考示例
-- **快速开始向导** — 根据身份和行业推荐最佳模板
-- **一键启动** — 双击启动脚本，自动安装依赖并打开浏览器
+1. 到 [Releases](https://github.com/Jovan1666/ResumeX/releases) 页面下载最新版安装包 `ResumeX-Setup-<version>.exe`
+2. 双击安装，桌面生成「ResumeX」快捷方式
+3. 打开即可创建简历，点击右上角「导出」生成 PDF / Word / PNG
 
----
+> 数据保存在本机（安装后不会丢），不同设备 / 浏览器之间数据互不相通。
+> 没有安装包时也可以直接用浏览器打开（见下方「源码开发」）。
 
-## 小白用户安装教程（完全不懂编程也能用）
+## 已发布版本说明
 
-只需 3 步，跟着做就行：
+- **v1.0.0** 老安装包**不能**自动更新到本线（那版没有 `latest.yml`），需要手动下载并安装 **v1.1.0** 底包。
+- 从 **v1.1.0** 开始，软件能感知 GitHub 上的新版本，界面顶栏（桌面版）会显示「检查更新 / 发现新版本 / 立即更新」，点击即可覆盖安装。
 
-### 第 1 步：安装 Node.js
+## 功能
 
-1. 打开 https://nodejs.org/zh-cn
-2. 点击页面上**左边的绿色按钮**（LTS 长期支持版）下载
-3. 双击下载的文件，一路点「下一步」直到安装完成
+- **8 套国内简历模板**：校招通用、社招通用、商务深蓝、体制公文、技术简洁、极简黑白（ATS 网申友好）、双栏紧凑（进阶）、英文简洁
+- **实时预览**：左侧编辑右侧 A4，所见即所得
+- **多格式导出**：PDF（桌面端文字可选中）、PNG、Word(.docx)
+- **自动更新**：GitHub Releases 发版后桌面端提示更新
+- **数据本地存储**：IndexedDB，照片单独 Blob 存储，不上传服务器；支持备份 / 恢复
+- **多简历管理**：创建、复制、删除、拖拽排序
+- **撤销 / 重做**：顶栏按钮 + 快捷键（输入框内 Ctrl+Z 保留给文字编辑）
+- **国内排版默认值**：校招教育在前、岗位可显示政治面貌 / 籍贯、微信字段
 
-> 验证是否安装成功：按 `Win + R`，输入 `cmd` 回车，在黑色窗口中输入 `node -v`，如果显示版本号（如 `v20.x.x`）就说明安装成功了。
+## 源码开发（可选）
 
-### 第 2 步：下载本项目
-
-**方式 A：直接下载压缩包（推荐新手）**
-
-1. 在本页面点击绿色的 **Code** 按钮
-2. 选择 **Download ZIP**
-3. 下载后解压到你想放的位置（比如桌面）
-
-**方式 B：用 Git 克隆（懂 Git 的用户）**
+要求 Node.js 18+：
 
 ```bash
-git clone https://github.com/Jovan1666/ResumeX.git
+cd 界面
+npm install
+npm run dev        # 开发服务器 http://localhost:5173
 ```
 
-### 第 3 步：启动项目
+应用代码在 `界面/`；npm 命令必须在 `界面/` 下执行。
 
-**方式 A：一键启动（推荐）**
-
-1. 打开解压后的项目文件夹
-2. 双击 `启动.bat`（Windows）或 `start.command`（macOS）
-3. 首次运行会自动安装依赖（约 1-3 分钟），完成后浏览器会自动打开
-
-> 以后每次使用只需双击启动脚本即可，无需重复安装。
->
-> ⚡ **如果安装依赖很慢**（国内网络），先在命令行执行一次以下命令切换镜像源，以后所有 npm 操作都会加速：
-> ```bash
-> npm config set registry https://registry.npmmirror.com
-> ```
-
-**方式 B：手动启动（熟悉命令行的用户）**
-
-1. 打开解压后的文件夹，找到 `界面` 这个文件夹
-2. 在 `界面` 文件夹的**空白处**，按住 `Shift` 键同时**右键点击**，选择「在此处打开 PowerShell 窗口」
-3. 依次输入以下命令：
+## 构建 Windows 安装包（开发者）
 
 ```bash
-npm install    # 首次使用需要，之后可跳过
-npm run dev    # 启动开发服务器
+# 根目录：先安装依赖
+npm install
+
+# 本地构建（产出 release/installer/ResumeX-Setup-<version>.exe + latest.yml）
+node build-setup.js
+
+# CI 发版（GitHub Actions：push tag v* 自动发布）
+node build-setup.js --publish
 ```
 
-4. 看到类似 `Local: http://localhost:5173` 的提示后，打开浏览器访问这个地址即可！
+## 发版流程
 
----
+1. 修改根 `package.json` 的 `version`（与 tag 一致，如 1.2.0）
+2. 打 tag：`git tag v1.2.0 && git push origin v1.2.0`
+3. GitHub Actions 自动构建并发布 Release（exe + latest.yml + blockmap）
+4. 用户桌面端收到更新提示 → 点「使用此模板」或直接更新
 
-## 使用说明
-
-详细的功能使用教程请查看 [用户使用指南](界面/用户使用指南.md)，包含：
-
-- 如何创建和编辑简历
-- 如何切换模板和主题色
-- 如何导出 PDF / Word / 图片
-- 如何备份和恢复数据
-- 常见问题解答
-
----
+> 注意：更新器只认 GitHub Release + `latest.yml`，普通 push 不会触发更新。
 
 ## 技术栈（开发者参考）
 
-| 技术 | 用途 |
-|------|------|
-| React 18 | UI 框架 |
-| TypeScript | 类型安全 |
-| Vite | 构建工具 |
-| Tailwind CSS 4 | 样式系统 |
-| Zustand | 状态管理 |
-| React Router 7 | 路由 |
-| dnd-kit | 拖拽排序 |
-| html-to-image | PNG 导出 |
-| jsPDF | PDF 导出 |
-| docx | Word 导出 |
-| Motion (Framer) | 动画效果 |
+React 18 · TypeScript · Vite · Tailwind CSS 4 · Zustand (persist + immer + IndexedDB) · React Router 7 (HashRouter) · Electron 33 · electron-builder (NSIS) · electron-updater · docx · html-to-image
 
-## 项目结构
+## 常见问题
 
-```
-界面/
-├── src/
-│   ├── app/
-│   │   ├── components/
-│   │   │   ├── editor/       # 编辑器核心组件
-│   │   │   ├── templates/    # 35+ 简历模板组件
-│   │   │   ├── dashboard/    # 仪表盘（简历管理）
-│   │   │   ├── landing/      # 落地页
-│   │   │   └── ui/           # 通用 UI 组件
-│   │   ├── store/            # Zustand 状态管理
-│   │   ├── types/            # TypeScript 类型定义
-│   │   ├── hooks/            # 自定义 Hooks
-│   │   ├── utils/            # 工具函数（导出、备份等）
-│   │   └── data/             # 初始数据、范文数据
-│   └── styles/               # 全局样式、字体、打印样式
-└── package.json
-```
+**浏览器版和安装包数据通吗？** 不同。`localhost:5173` 与运行在 `file://` 的安装包是两个存储空间，数据互不相通（安装包的数据在 `%APPDATA%\ResumeX`）。
 
-## 模板预览
+**为什么本地 `npm run dev` 时看不到「检查更新」？** 开发模式不检查更新（只有安装包会），这是刻意的。
 
-项目包含 35+ 个简历模板，按场景分类：
-
-**通用模板：** 科技橙红、商务浅蓝、极简黑白、活力红、双栏专业
-
-**行业模板：** Java后端、AI开发、工程师、会计财务、人事专员、医疗、销售、新闻传播、教师
-
-**风格模板：** 时间线、双栏紧凑、创意设计、学术简约、卡片模块、高端精英、应届生专属、信息图表
-
-**岗位模板：** 公务员/事业单位、运营专员、各行业通用
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-### 添加新模板
-
-1. 在 `src/app/components/templates/` 下创建新模板组件（参考现有模板格式）
-2. 在 `src/app/types/resume.ts` 的 `TemplateId` 中添加新 ID
-3. 在 `src/app/types/theme.ts` 中添加对应主题色（如需要）
-4. 在 `src/app/components/templates/ResumeRenderer.tsx` 中注册新模板
-5. 在 `src/app/components/editor/TemplateModal.tsx` 中添加模板选项
-
-### 开发规范
-
-- 所有模板必须使用 CSS 变量（`var(--color-primary)` 等）而非硬编码颜色
-- 使用 `React.memo` 和细粒度 selector 优化性能
-- 描述渲染统一使用 `split('\n')` + 子弹点方式
+**照片会占很多空间吗？** 不会。照片裁切后压缩为 ≤150KB JPEG 单独存 IndexedDB，不进入简历 JSON。
 
 ## License
 

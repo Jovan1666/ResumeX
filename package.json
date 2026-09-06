@@ -1,11 +1,20 @@
 {
   "name": "resumex",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "ResumeX - 免费专业简历制作工具",
   "main": "electron/main.js",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jovan1666/ResumeX.git"
+  },
+  "author": "ResumeX Contributors",
   "scripts": {
     "build:setup": "node build-setup.js"
+  },
+  "dependencies": {
+    "electron-log": "^5.2.4",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -17,6 +26,7 @@
     "appId": "com.resumex.app",
     "productName": "ResumeX",
     "copyright": "Copyright © 2025 ResumeX",
+    "artifactName": "ResumeX-Setup-${version}.${ext}",
     "directories": {
       "output": "release/installer"
     },
@@ -44,7 +54,16 @@
         "zh_CN",
         "en_US"
       ],
-      "language": "2052"
-    }
+      "language": "2052",
+      "artifactName": "ResumeX-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Jovan1666",
+        "repo": "ResumeX",
+        "releaseType": "release"
+      }
+    ]
   }
 }
