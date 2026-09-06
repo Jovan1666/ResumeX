@@ -13,7 +13,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { 
   GripVertical, ChevronDown, ChevronRight, Eye, EyeOff, Trash2, 
   Briefcase, GraduationCap, Code, Folder, Layers, Plus, Copy, X,
-  ArrowUp, ArrowDown, BookOpen, ChevronLeft
+  ArrowUp, ArrowDown, BookOpen, ChevronLeft, Award
 } from 'lucide-react';
 import { DatePicker } from './DatePicker';
 import { DebouncedInput, DebouncedTextarea } from './DebouncedInput';
@@ -25,6 +25,8 @@ const descriptionPlaceholders: Record<ModuleType, string> = {
   experience: '请描述工作职责和成果，如:\n• 主导XX系统开发，日均处理XX请求\n• 优化XX性能，提升XX%',
   projects: '请描述项目背景、你的角色和技术成果',
   education: '可填写 GPA、奖学金、主修课程、社团活动等',
+  campus: '请描述校园经历（社团、学生会、学术活动等）',
+  honors: '请描述荣誉奖项（奖项名称、级别、时间）',
   skills: '',
   custom: '请填写相关内容',
 };
@@ -129,6 +131,8 @@ const moduleIcons: Record<ModuleType, React.ReactNode> = {
   education: <GraduationCap size={16} />,
   skills: <Code size={16} />,
   projects: <Folder size={16} />,
+  campus: <GraduationCap size={16} />,
+  honors: <Award size={16} />,
   custom: <Layers size={16} />,
 };
 

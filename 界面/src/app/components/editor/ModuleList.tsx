@@ -25,6 +25,8 @@ const moduleTypes: { type: ModuleType; label: string; icon: React.ReactNode }[] 
   { type: 'education', label: '教育背景', icon: <GraduationCap size={20} /> },
   { type: 'skills', label: '技能特长', icon: <Code size={20} /> },
   { type: 'projects', label: '项目经历', icon: <Folder size={20} /> },
+  { type: 'campus', label: '校园经历', icon: <Award size={20} /> },
+  { type: 'honors', label: '荣誉奖项', icon: <Star size={20} /> },
   { type: 'custom', label: '自定义', icon: <Layers size={20} /> },
 ];
 

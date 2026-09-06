@@ -1,4 +1,6 @@
-export type ThemeColor = 'tech-orange' | 'business-blue' | 'minimal-bw' | 'vibrant-red' | 'pro-blue' | 'emerald-green' | 'creative-purple' | 'warm-amber' | 'elegant-gold' | 'fresh-teal' | 'indigo-data' | 'navy-compact';
+import { TemplateId } from './resume';
+
+export type ThemeColor = 'ink' | 'navy' | 'campus' | 'rust' | 'pine' | 'slate';
 export type FontFamily = 'sans' | 'serif' | 'mono' | 'kaiti' | 'fangsong' | 'yahei' | 'heiti';
 export type SpacingLevel = 'compact' | 'standard' | 'relaxed' | 'custom';
 
@@ -16,169 +18,107 @@ export interface ThemeConfig {
   };
 }
 
+// 6 个主题色（02 §5.4，R1/R2 只许改 hex 不许改默认倾向）
 export const themes: Record<ThemeColor, ThemeConfig> = {
-  'tech-orange': {
-    id: 'tech-orange',
-    name: 'Tech Orange',
-    nameZh: '科技橙红',
-    sceneHint: '适合技术、互联网岗位',
+  ink: {
+    id: 'ink',
+    name: 'Ink',
+    nameZh: '墨黑',
+    sceneHint: '极简黑白，网申 ATS 友好',
     colors: {
-      primary: '#E53E3E',
-      secondary: '#2D3748',
-      text: '#2D3748',
+      primary: '#1A1A1A',
+      secondary: '#E5E5E5',
+      text: '#222222',
       background: '#FFFFFF',
-      accent: '#FFF5F5'
-    }
+      accent: '#F7F7F7',
+    },
   },
-  'business-blue': {
-    id: 'business-blue',
-    name: 'Business Blue',
-    nameZh: '商务浅蓝',
-    sceneHint: '适合商务、金融、校招',
+  navy: {
+    id: 'navy',
+    name: 'Navy',
+    nameZh: '商务藏蓝',
+    sceneHint: '金融、商务、社招通用',
     colors: {
-      primary: '#3182CE',
-      secondary: '#EDF2F7',
-      text: '#2D3748',
+      primary: '#1E4E8C',
+      secondary: '#E8EEF6',
+      text: '#222222',
       background: '#FFFFFF',
-      accent: '#EBF8FF'
-    }
+      accent: '#F0F4FA',
+    },
   },
-  'minimal-bw': {
-    id: 'minimal-bw',
-    name: 'Minimal B&W',
-    nameZh: '极简黑白',
-    sceneHint: '适合财务、法务、传统行业',
-    colors: {
-      primary: '#1A202C',
-      secondary: '#E2E8F0',
-      text: '#1A202C',
-      background: '#FFFFFF',
-      accent: '#F7FAFC'
-    }
-  },
-  'vibrant-red': {
-    id: 'vibrant-red',
-    name: 'Vibrant Red',
-    nameZh: '活力红',
-    sceneHint: '适合运营、市场、创意岗位',
-    colors: {
-      primary: '#C53030',
-      secondary: '#FED7D7',
-      text: '#2D3748',
-      background: '#FFFFFF',
-      accent: '#FFF5F5'
-    }
-  },
-  'pro-blue': {
-    id: 'pro-blue',
-    name: 'Professional Blue',
-    nameZh: '专业蓝',
-    sceneHint: '适合管理、咨询、专业岗位',
+  campus: {
+    id: 'campus',
+    name: 'Campus',
+    nameZh: '校招蓝',
+    sceneHint: '校招、实习、通用',
     colors: {
       primary: '#2B6CB0',
-      secondary: '#F7FAFC',
-      text: '#2C5282',
+      secondary: '#E7EFF8',
+      text: '#222222',
       background: '#FFFFFF',
-      accent: '#EBF8FF'
-    }
+      accent: '#F1F6FC',
+    },
   },
-  'emerald-green': {
-    id: 'emerald-green',
-    name: 'Emerald Green',
-    nameZh: '翡翠绿',
-    sceneHint: '适合教育、环保、医疗',
+  rust: {
+    id: 'rust',
+    name: 'Rust',
+    nameZh: '砖红',
+    sceneHint: '运营、市场、互联网',
     colors: {
-      primary: '#059669',
-      secondary: '#D1FAE5',
-      text: '#1F2937',
+      primary: '#B42318',
+      secondary: '#FBE9E8',
+      text: '#222222',
       background: '#FFFFFF',
-      accent: '#ECFDF5'
-    }
+      accent: '#FCF3F2',
+    },
   },
-  'creative-purple': {
-    id: 'creative-purple',
-    name: 'Creative Purple',
-    nameZh: '创意紫',
-    sceneHint: '适合设计、艺术、创意行业',
+  pine: {
+    id: 'pine',
+    name: 'Pine',
+    nameZh: '松绿',
+    sceneHint: '教育、环保、医疗',
     colors: {
-      primary: '#7C3AED',
-      secondary: '#EDE9FE',
-      text: '#1F2937',
+      primary: '#2F6F4E',
+      secondary: '#E6F0EA',
+      text: '#222222',
       background: '#FFFFFF',
-      accent: '#F5F3FF'
-    }
+      accent: '#F0F6F2',
+    },
   },
-  'warm-amber': {
-    id: 'warm-amber',
-    name: 'Warm Amber',
-    nameZh: '暖琥珀',
-    sceneHint: '适合运营、市场、文科',
+  slate: {
+    id: 'slate',
+    name: 'Slate',
+    nameZh: '岩青灰',
+    sceneHint: '技术、研发、工程师',
     colors: {
-      primary: '#D97706',
-      secondary: '#FEF3C7',
-      text: '#1F2937',
+      primary: '#4A5568',
+      secondary: '#E9ECF1',
+      text: '#222222',
       background: '#FFFFFF',
-      accent: '#FFFBEB'
-    }
+      accent: '#F3F5F8',
+    },
   },
-  'elegant-gold': {
-    id: 'elegant-gold',
-    name: 'Elegant Gold',
-    nameZh: '典雅金',
-    sceneHint: '适合高管、总监、律师',
-    colors: {
-      primary: '#92400E',
-      secondary: '#F5F5F4',
-      text: '#1C1917',
-      background: '#FFFFFF',
-      accent: '#FAFAF9'
-    }
-  },
-  'fresh-teal': {
-    id: 'fresh-teal',
-    name: 'Fresh Teal',
-    nameZh: '清新蓝绿',
-    sceneHint: '适合应届生、校招',
-    colors: {
-      primary: '#0D9488',
-      secondary: '#CCFBF1',
-      text: '#1F2937',
-      background: '#FFFFFF',
-      accent: '#F0FDFA'
-    }
-  },
-  'indigo-data': {
-    id: 'indigo-data',
-    name: 'Indigo Data',
-    nameZh: '靛蓝数据',
-    sceneHint: '适合数据分析、产品经理',
-    colors: {
-      primary: '#4F46E5',
-      secondary: '#E0E7FF',
-      text: '#1F2937',
-      background: '#FFFFFF',
-      accent: '#EEF2FF'
-    }
-  },
-  'navy-compact': {
-    id: 'navy-compact',
-    name: 'Navy Compact',
-    nameZh: '海军蓝',
-    sceneHint: '适合销售、商务、传统行业',
-    colors: {
-      primary: '#1E3A5F',
-      secondary: '#E2E8F0',
-      text: '#1E293B',
-      background: '#FFFFFF',
-      accent: '#F1F5F9'
-    }
-  }
+};
+
+// 未知主题 fallback ink（禁止 tech-orange）
+export const FALLBACK_THEME: ThemeColor = 'ink';
+
+/** 8 套默认模板 → 默认主题（02 §5.4） */
+export const TEMPLATE_THEME_DEFAULT: Record<TemplateId, ThemeColor> = {
+  campusClean: 'campus',
+  jobClean: 'navy',
+  navyBiz: 'navy',
+  civilFile: 'ink',
+  techPlain: 'slate',
+  atsMono: 'ink',
+  compactSplit: 'navy',
+  enSimple: 'ink',
 };
 
 export interface GlobalSettings {
   themeColor: ThemeColor;
   fontFamily: FontFamily;
-  fontSizeScale: number; // 0.85 to 1.1（一键适应可压到 0.80）
+  fontSizeScale: number; // 0.80 to 1.1（一键适应可压到 0.80）
   lineHeight: SpacingLevel;
   pageMargin: SpacingLevel;
   customLineHeight?: number;  // 自定义行高值，范围 1.0 ~ 2.0
