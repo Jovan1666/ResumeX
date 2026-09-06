@@ -13,7 +13,10 @@ interface DatePickerProps {
 
 const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 30 }, (_, i) => currentYear - i);
+// 年份范围：1980 至 当前年 + 1（规格 4.4）
+const YEAR_MIN = 1980;
+const YEAR_MAX = currentYear + 1;
+const years = Array.from({ length: YEAR_MAX - YEAR_MIN + 1 }, (_, i) => YEAR_MAX - i);
 
 export const DatePicker: React.FC<DatePickerProps> = ({
   value,
@@ -24,20 +27,20 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [isPresent, setIsPresent] = useState(value === '至今');
+  // isPresent 派生自 value === '至今'（P1-5 修复：value 变成日期后自动为 false）
+  const isPresent = value === '至今';
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, openUpward: false });
 
   const triggerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 解析当前值
+  // 解析当前值：同步选中年份（不直接改 isPresent 状态）
   useEffect(() => {
-    if (value === '至今') {
-      setIsPresent(true);
-    } else if (value) {
+    if (value && value !== '至今') {
       const match = value.match(/(\d{4})\.(\d{1,2})/);
       if (match) {
-        setSelectedYear(parseInt(match[1]));
+        const y = parseInt(match[1]);
+        setSelectedYear(Math.min(YEAR_MAX, Math.max(YEAR_MIN, y)));
       }
     }
   }, [value]);
@@ -106,19 +109,16 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     const month = String(monthIndex + 1).padStart(2, '0');
     onChange(`${selectedYear}.${month}`);
     setIsOpen(false);
-    setIsPresent(false);
   };
 
   const handleSelectPresent = () => {
     onChange('至今');
-    setIsPresent(true);
     setIsOpen(false);
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange('');
-    setIsPresent(false);
   };
 
   const displayValue = isPresent ? '至今' : value;
@@ -133,12 +133,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         left: dropdownPos.left,
       }}
     >
-      {/* 年份选择 */}
+      {/* 年份选择：左箭头 = 更早年份（规格 1.5） */}
       <div className="flex items-center justify-between p-2 bg-gray-50 border-b border-gray-200">
         <button
-          onClick={() => setSelectedYear(Math.min(currentYear, selectedYear + 1))}
-          disabled={selectedYear >= currentYear}
+          onClick={() => setSelectedYear(Math.max(YEAR_MIN, selectedYear - 1))}
+          disabled={selectedYear <= YEAR_MIN}
           className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          title="更早年份"
         >
           <ChevronLeft size={16} />
         </button>
@@ -152,9 +153,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           ))}
         </select>
         <button
-          onClick={() => setSelectedYear(Math.max(currentYear - 29, selectedYear - 1))}
-          disabled={selectedYear <= currentYear - 29}
+          onClick={() => setSelectedYear(Math.min(YEAR_MAX, selectedYear + 1))}
+          disabled={selectedYear >= YEAR_MAX}
           className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          title="更晚年份"
         >
           <ChevronRight size={16} />
         </button>

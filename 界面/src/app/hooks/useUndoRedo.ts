@@ -156,6 +156,22 @@ export class UndoRedoManager<T> {
     return this.future.length > 0;
   }
 
+  /** 栈顶快照引用（用于去重判断） */
+  peekLast(): T | undefined {
+    return this.past[this.past.length - 1];
+  }
+
+  /** 栈顶快照的 JSON 字符串（用于深比较去重） */
+  peekLastJson(): string | undefined {
+    const last = this.peekLast();
+    if (last === undefined) return undefined;
+    try {
+      return JSON.stringify(last);
+    } catch {
+      return undefined;
+    }
+  }
+
   clear(): void {
     this.past = [];
     this.future = [];

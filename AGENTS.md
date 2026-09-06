@@ -1,101 +1,76 @@
 # AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+本文件为在 ResumeX 仓库工作的智能体/开发者提供指引。
 
-## Project Overview
+## 项目概述
 
-ResumeX — 一款开源免费的在线简历制作工具。纯前端 SPA，数据存储在浏览器 localStorage，无后端服务。支持 35+ 模板、实时预览、PDF/PNG/Word 导出。
+ResumeX — 开源免费的**中文简历制作桌面软件**（Windows 安装包为主，浏览器为辅）。纯前端 SPA（React 18 + TS + Vite + Tailwind CSS 4 + Zustand）+ 很薄的 Electron 壳，无后端服务。数据本地存储（IndexedDB，key `resumex-db`），照片以 Blob 单独存储。内置 GitHub 自动更新（electron-updater + latest.yml）。
 
-## Repository Layout
+## 仓库布局
 
-项目根目录包含启动脚本（`start.js`、`启动.bat`、`start.command`），实际应用代码全部在 `界面/` 子目录中。所有 npm 命令必须在 `界面/` 目录下执行。
+- 应用代码全部在 `界面/` 子目录；npm 命令必须在 `界面/` 下执行
+- 根目录：`electron/main.js`（主进程）、`build-setup.js`（NSIS 安装包构建）、`package.json`（根 version = 发版 tag）、`.github/workflows/release.yml`（tag 发版）
+- 开发方案与执行记录在 `开发方案/`（注意：`docs/` 被 gitignore，不要写进那里）
 
-## Build & Dev Commands
+## 构建与开发命令
 
 ```bash
-# 进入应用目录
+# 应用目录（所有前端/测试命令）
 cd 界面
-
-# 安装依赖
 npm install
+npm run dev            # Vite 开发服务器 http://localhost:5173
+npm run type-check     # tsc --noEmit
+npm run build          # tsc -b && vite build
+npm run test           # vitest run
+npm run lint           # eslint
 
-# 启动开发服务器 (Vite, 默认 http://localhost:5173)
-npm run dev
-
-# 类型检查
-npm run type-check    # 等价于 tsc --noEmit
-
-# 构建生产版本
-npm run build         # tsc -b && vite build
-
-# 预览构建产物
-npm run preview
-
-# 运行测试 (Vitest)
-npm run test          # vitest run
-
-# 运行单个测试文件
-npx vitest run src/app/utils/exportFilename.test.ts
-
-# Lint
-npm run lint          # eslint
+# 根目录（Windows 安装包）
+node build-setup.js    # 产出 release/installer/ResumeX-Setup-<version>.exe + latest.yml
 ```
 
-## Architecture
+## 架构关键点（与 02 规格一致，过时信息以 `开发方案/02-产品规格.md` 为准）
 
-### Tech Stack
-React 18 + TypeScript + Vite + Tailwind CSS 4 + Zustand + React Router 7
+### 路由
 
-### Routing (React Router, BrowserRouter)
-- `/` — LandingPage（落地页）
-- `/dashboard` — Dashboard（简历列表管理）
-- `/editor` — EditorLayout（核心编辑器，左侧表单 + 右侧实时预览）
+- **HashRouter**（Electron `loadFile` 必须）：`#/` 落地页、`#/dashboard` 简历列表、`#/editor` 编辑器
+- 404 与错误边界：用 `Link to="/"` / `navigate('/')` 或 `<a href="#/">`；**禁止** `<a href="/">` 与 `navigate('#/')`
 
-所有路由组件使用 `React.lazy` + `Suspense` 懒加载，且内置网络故障自动重试。
+### 存储（不要回退到 localStorage 存简历）
 
-### State Management (Zustand + Immer + Persist)
-单一 store：`界面/src/app/store/useResumeStore.ts`
-- 使用 `zustand/middleware/immer` 实现不可变更新
-- 使用 `zustand/middleware/persist` 持久化到 localStorage（key: `resume-storage`）
-- 支持多简历管理：`resumes: Record<string, ResumeData>` + `activeResumeId`
-- 内置撤销/重做：每个简历有独立的 `UndoRedoManager` 实例（`界面/src/app/hooks/useUndoRedo.ts`）
-- **性能要求**：组件必须使用细粒度 selector（如 `state => state.resumes[state.activeResumeId]?.settings.themeColor`），禁止订阅整个 store
+- 简历库在 IndexedDB（idb-keyval，库名 `resumex-db`），persist `version: 3`
+- 照片 Blob 单独存 idb（`avatar.ts`：`saveAvatar/loadAvatar/deleteAvatar/cloneAvatar`），UI 只用 `useAvatarObjectUrl`
+- persist setItem 失败必须可见（toast + 红点）；hydrate 失败进入 `RecoveryScreen` 全屏只读恢复，**禁止**用演示数据（李明）覆盖
+- `localhost:5173` 与安装包 `file://` 是两个 origin，数据不通、不同步（README 已写明）
 
-### Template System
-35+ 模板位于 `界面/src/app/components/templates/`，全部通过 `ResumeRenderer.tsx` 统一调度：
-- 所有模板按需懒加载（`React.lazy`），已加载的缓存在 `lazyComponentCache` Map 中
-- 每个模板接收 `{ data: ResumeData }` props
-- 主题色通过 `ThemeWrapper` 注入 CSS 变量（`--color-primary`、`--color-secondary` 等），模板**必须**使用 `var(--color-primary)` 等 CSS 变量，禁止硬编码颜色
+### 模板系统
 
-### Adding a New Template
-1. 在 `界面/src/app/components/templates/` 创建 `XxxTemplate.tsx`，导出命名组件
-2. 在 `界面/src/app/types/resume.ts` 的 `TemplateId` union 中添加新 ID
-3. 如需新主题色，在 `界面/src/app/types/theme.ts` 的 `themes` 对象中添加
-4. 在 `界面/src/app/components/templates/ResumeRenderer.tsx` 的 `templateLoaders` 中注册懒加载
-5. 在 `界面/src/app/components/editor/TemplateModal.tsx` 中添加模板选项卡片
+固定 8 套（`TemplateId`）：`campusClean`（默认）/ `jobClean` / `navyBiz` / `civilFile` / `techPlain` / `atsMono` / `compactSplit` / `enSimple`。共享原语在 `components/templates/_primitives/`。
 
-### Type System
-- `界面/src/app/types/resume.ts` — 核心数据类型（`ResumeData`、`ResumeModule`、`TemplateId`、`ModuleType`）
-- `界面/src/app/types/theme.ts` — 主题配置（`ThemeColor`、`GlobalSettings`、12 种预设主题色）
-- 模块分两种：`SkillsModule`（技能标签）和 `ContentModule`（经历条目），使用类型守卫 `isSkillsModule()` / `isContentModule()` 区分
+硬性禁止：
 
-### Export System
-三种导出格式，逻辑分散在不同文件：
-- **PDF**：`EditorLayout.tsx` 内 `handleExportPdf`，使用 `html-to-image` (toCanvas) + `jsPDF` 分页渲染
-- **PNG**：`界面/src/app/utils/export.ts` 的 `exportToPng`，使用 `html-to-image` (toPng)
-- **Word**：`界面/src/app/utils/exportDocx.ts` 的 `exportToDocx`，使用 `docx` 库程序化构建文档
-- **文件名生成**：`界面/src/app/utils/exportFilename.ts` 统一生成 `姓名_求职意向_简历.格式`，自动清理非法字符
+- 模板组件内使用 `sm:`/`md:`/`lg:` 等视口断点（窄窗口导出会丢照片）
+- `.resume-page` 上任何 padding；全局 `fonts.css` 里 `.resume-page[data-margin] > div { padding: … !important }` 整段**已删除**，不可恢复
+- 技能条/百分比、时间线圆点轨道、大渐变、中文模板英文全大写栏目、`uppercase tracking-widest` 作用在中文标题
+- 模板强调色只允许 `var(--color-primary)` 等 CSS 变量（ThemeWrapper 注入）；未知主题 fallback `ink`，**禁止** `tech-orange`
 
-### UI Components
-`界面/src/app/components/ui/` 下约 47 个 Radix UI 基础组件（shadcn/ui 风格），使用 `class-variance-authority` + `tailwind-merge` + `clsx` 做样式管理。工具函数 `cn()` 位于 `界面/src/app/lib/utils.ts`。
+切模板同时切该模板默认主题（映射见 02 §5.4）。旧 TemplateId 在 persist migrate 中映射到最近新 id（映射表见 02 §5.1，逐字照抄）。
 
-### Path Alias
-`@/` 映射到 `界面/src/`（在 `tsconfig.json` 和 `vite.config.ts` 中配置）
+### 撤销（Undo）
 
-## Code Conventions
+- 历史存**变更前**快照：store action 变更前 `push(prev)`；EditorLayout **禁止**对 deferred 数据 debounce 调 `pushHistory`
+- 焦点在 input/textarea/select/[contenteditable] 时：Ctrl/Cmd+Z/Y **永远**不 preventDefault、不调简历 undo；简历撤销走顶栏按钮与 Ctrl+Alt+Z / Ctrl+Shift+Z（非输入焦点）
+- 冷却只跳过 undo/redo 触发的下一次 push，禁止 2000ms 吞用户输入
 
-- 描述内容渲染统一使用 `split('\n')` + 子弹点方式
-- 使用 `React.memo` 包裹组件，配合细粒度 Zustand selector 优化性能
-- 深拷贝使用 `safeDeepClone()`（优先 `structuredClone`，fallback `JSON.parse(JSON.stringify())`）兼容 Immer Proxy
-- TypeScript 严格模式启用（`strict: true`、`noUnusedLocals`、`noUnusedParameters`）
-- 所有代码和注释使用中文
+### 导出
+
+- 桌面 PDF：`webContents.printToPDF`，**禁止**对含编辑器的整窗直接打印（先 print-mode 只显示 `.resume-page`）；margins 用英寸字段 `{ top, bottom, left, right }`，**禁止**写 `margins.marginType`（那是 `webContents.print()` 的字段）
+- 浏览器 PDF：`window.print`（print-mode）或明确标注「图片型 PDF」
+- 文件名：`姓名_求职意向_简历.ext`（`exportFilename.ts`）
+- `print.css` **禁止** `header { display:none }`（可能隐藏简历姓名头）；用 `.editor-chrome { display:none }`
+
+### 其它约定
+
+- 单 store `界面/src/app/store/useResumeStore.ts`；组件必须细粒度 selector
+- 深拷贝用 `safeDeepClone()`（structuredClone → JSON fallback）
+- 新简历默认空个人信息（禁止李明）；模块空则纸面不渲染标题
+- 代码和注释用中文；TypeScript 严格模式

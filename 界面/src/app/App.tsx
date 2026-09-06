@@ -1,7 +1,10 @@
 import React, { Suspense, lazy } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link } from 'react-router-dom';
 import { ToastProvider } from '@/app/components/ui/toast';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
+import { useResumeStore } from '@/app/store/useResumeStore';
+import { RecoveryScreen } from '@/app/components/RecoveryScreen';
+import { useEffect, useState } from 'react';
 
 // 带重试的懒加载（网络故障时自动重试最多 3 次，避免白屏）
 function lazyWithRetry<T extends React.ComponentType>(
@@ -36,33 +39,57 @@ const LoadingFallback: React.FC = () => (
   </div>
 );
 
-// 404 页面
+// 404 页面：HashRouter 内用 Link（禁止 <a href="/"> 与 navigate('#/')）
 const NotFoundPage: React.FC = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
     <div className="text-center">
       <h1 className="text-6xl font-bold text-gray-300 mb-4">404</h1>
       <p className="text-gray-500 mb-6">页面不存在</p>
-      <a href="/" className="text-blue-600 hover:text-blue-700 font-medium">
+      <Link to="/" className="text-blue-600 hover:text-blue-700 font-medium">
         返回首页
-      </a>
+      </Link>
     </div>
   </div>
 );
+
+/** 应用入口：先处理水合（IndexedDB），失败进入全屏恢复屏 */
+const AppInner: React.FC = () => {
+  const hydrationPending = useResumeStore((s) => s.hydrationPending);
+  const hydrationError = useResumeStore((s) => s.hydrationError);
+  const hydrate = useResumeStore((s) => s.hydrate);
+  const [hydrateStarted, setHydrateStarted] = useState(false);
+
+  useEffect(() => {
+    if (!hydrateStarted) {
+      setHydrateStarted(true);
+      void hydrate();
+    }
+  }, [hydrateStarted, hydrate]);
+
+  if (hydrationPending) return <LoadingFallback />;
+
+  // hydrate 失败：全屏只读恢复，禁止进入 Dashboard/Editor
+  if (hydrationError) return <RecoveryScreen error={hydrationError} />;
+
+  return (
+    <HashRouter>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/editor" element={<EditorLayout />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
+    </HashRouter>
+  );
+};
 
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <HashRouter>
-          <Suspense fallback={<LoadingFallback />}>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/editor" element={<EditorLayout />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </Suspense>
-        </HashRouter>
+        <AppInner />
       </ToastProvider>
     </ErrorBoundary>
   );

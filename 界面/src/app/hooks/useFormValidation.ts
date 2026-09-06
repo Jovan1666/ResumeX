@@ -26,6 +26,19 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^1[3-9]\d{9}$/;
 const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/;
 
+/** 手机号清洗：去空格、去连字符、去 +86 前缀（存储可保留原格式，校验用干净值） */
+export function normalizePhone(value: string): string {
+  return value
+    .replace(/\s+/g, '')
+    .replace(/\+?86(?=1\d{10}$)/, '')
+    .replace(/[()\-]/g, '');
+}
+
+/** 判断值是否为有效手机号（先去空格 +86 再测） */
+export function isValidPhone(value: string): boolean {
+  return phonePattern.test(normalizePhone(value));
+}
+
 export function validateField(value: string, rules: ValidationRule, fieldName: string): string | null {
   if (rules.required && (!value || value.trim() === '')) {
     return `${fieldName}不能为空`;
@@ -43,7 +56,7 @@ export function validateField(value: string, rules: ValidationRule, fieldName: s
     return '请输入有效的邮箱地址';
   }
 
-  if (value && rules.phone && !phonePattern.test(value)) {
+  if (value && rules.phone && !isValidPhone(value)) {
     return '请输入有效的手机号码';
   }
 
