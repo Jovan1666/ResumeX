@@ -21,6 +21,7 @@ import { cn } from '@/app/lib/utils';
 import { exportToDocx } from '@/app/utils/exportDocx';
 import { generateExportFilename } from '@/app/utils/exportFilename';
 import { isEditableTarget } from '@/app/store/useResumeStore';
+import { DebouncedInput, flushAllInputs } from './DebouncedInput';
 import { Undo2, Redo2 } from 'lucide-react';
 
 export const EditorLayout: React.FC = () => {
@@ -81,6 +82,8 @@ export const EditorLayout: React.FC = () => {
     if (!printRef.current || !resumeData || isExportingRef.current) return;
     isExportingRef.current = true;
     setIsExporting(true);
+    // 先把手上未提交的输入写回 store，再等 350ms 让纸面重排
+    flushAllInputs();
     try {
       // print-mode：print.css 把编辑器 chrome 隐藏，只保留 .resume-page
       document.body.classList.add('print-mode');
@@ -158,14 +161,23 @@ export const EditorLayout: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 导出前验证
+  // 导出前验证：先把防抖中的输入写回 store，再读最新姓名
+  // （旧实现读的是渲染闭包里的 resumeData，用户刚打完姓名立刻导出会被误判「未填写」）
   const validateBeforeExport = useCallback((): boolean => {
-    if (!resumeData?.profile.name?.trim()) {
+    flushAllInputs();
+    const s = useResumeStore.getState();
+    if (!s.resumes[s.activeResumeId]?.profile.name?.trim()) {
       showToast('warning', '请先填写姓名再导出');
       return false;
     }
     return true;
-  }, [resumeData?.profile.name, showToast]);
+  }, [showToast]);
+
+  /** 取最新简历数据（避免用渲染闭包里的旧快照导出） */
+  const latestResume = useCallback(() => {
+    const s = useResumeStore.getState();
+    return s.resumes[s.activeResumeId] ?? resumeData;
+  }, [resumeData]);
 
   // 真实保存：flush 到 IndexedDB，成功才 toast（P1 保存状态机）
   const handleSave = useCallback(async () => {
@@ -187,44 +199,52 @@ export const EditorLayout: React.FC = () => {
     handleExportPdf();
   }, [validateBeforeExport, handleExportPdf]);
 
-  // 快捷键支持（P1-3 修复：焦点在输入框时 Ctrl+Z/Y 永远不抢）
+  // 快捷键（严格按 AGENTS 规则）：
+  // - 焦点在 input/textarea/select/[contenteditable] 时，Ctrl/Cmd+Z、Ctrl+Y 这类**撤销重做**
+  //   永远不 preventDefault、不调简历 undo（交回输入框做文本撤销）
+  // - Ctrl+S / Ctrl+P 等非撤销快捷键在输入框内也必须生效（否则最常见的状态=焦点在输入框，
+  //   Ctrl+S 会弹浏览器另存对话框、Ctrl+P 会打印未提交的内容）
+  // - 触发前统一 flushAllInputs()：把防抖中的最后一次输入先写回 store
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target;
-      // 焦点在 input/textarea/select/contenteditable 时，Ctrl+Z/Y 交还给输入框
-      // 简历撤销只走顶栏按钮与 Ctrl+Alt+Z / Ctrl+Shift+Z（非输入焦点）
-      if (isEditableTarget(target)) {
-        return; // 什么都不做，不影响输入框的原生撤销
-      }
+      const inField = isEditableTarget(e.target);
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
 
-      // Ctrl/Cmd + S 保存
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      // 撤销 / 重做：输入框内一律不抢
+      if (mod && key === 'z' && !e.altKey) {
+        if (inField) return;
         e.preventDefault();
-        void handleSave();
+        if (e.shiftKey) redo(); else undo();
+        return;
       }
-      // Ctrl+Alt+Z 撤销（输入框外）
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 'z') {
+      if (mod && e.altKey && key === 'z') {
+        if (inField) return;
         e.preventDefault();
         undo();
         return;
       }
-      // Ctrl/Cmd + Shift + Z 重做（输入框外）
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+      if (mod && key === 'y') {
+        if (inField) return;
         e.preventDefault();
         redo();
         return;
       }
-      // Ctrl/Cmd + Z 撤销（输入框外；不再 preventDefault 抢输入框）
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+
+      // Ctrl/Cmd + S 保存（输入框内同样生效）
+      if (mod && key === 's') {
         e.preventDefault();
-        undo();
+        flushAllInputs();
+        void handleSave();
         return;
       }
-      // Ctrl/Cmd + P 打印/导出
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        if (isMobile) return; // 移动端不拦截打印
+      // Ctrl/Cmd + P 导出 PDF（输入框内同样生效）
+      if (mod && key === 'p') {
+        if (isMobile) return;
         e.preventDefault();
+        flushAllInputs();
         handleExportPdfWithConfirm();
+        return;
       }
       // Escape 关闭弹窗
       if (e.key === 'Escape') {
@@ -232,12 +252,13 @@ export const EditorLayout: React.FC = () => {
         setShowDiagnostic(false);
         setShowStyleSettings(false);
         setShowExportMenu(false);
+        setShowMobileMenu(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showToast, handleExportPdfWithConfirm, undo, redo, handleSave]);
+  }, [handleExportPdfWithConfirm, undo, redo, handleSave, isMobile]);
 
   // 在关键编辑操作前记录历史快照（防抖）
   // 注意：P1-1 修复 —— 历史快照由 store action 在变更前 push，
@@ -249,12 +270,14 @@ export const EditorLayout: React.FC = () => {
   // 导出 Word
   const handleExportDocx = async () => {
     if (!validateBeforeExport()) return;
-    if (!resumeData || isExportingRef.current) return;
+    if (isExportingRef.current) return;
+    const data = latestResume();
+    if (!data) return;
     isExportingRef.current = true;
     setIsExporting(true);
     setShowExportMenu(false);
     try {
-      await exportToDocx(resumeData);
+      await exportToDocx(data);
       showToast('success', 'Word 文档导出成功！');
     } catch (error) {
       console.error('Word export failed:', error);
@@ -278,6 +301,8 @@ export const EditorLayout: React.FC = () => {
     try {
       const { toBlob } = await import('html-to-image');
       const element = printRef.current;
+      // 等纸面用最新数据重绘（validateBeforeExport 刚 flush 过输入）
+      await new Promise(r => setTimeout(r, 120));
 
       // 临时重置父级 zoom 容器的 transform
       if (zoomEl) zoomEl.style.transform = 'scale(1)';
@@ -300,7 +325,8 @@ export const EditorLayout: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = resumeData ? generateExportFilename(resumeData, 'png') : '简历.png';
+      const data = latestResume();
+      link.download = data ? generateExportFilename(data, 'png') : '简历.png';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -341,12 +367,13 @@ export const EditorLayout: React.FC = () => {
     checks.push(!!profile.phone?.trim());
     checks.push(!!profile.email?.trim());
     checks.push(!!profile.summary?.trim());
+    // 与完整性检查面板口径一致：一个模块「还有几条没写描述」算一项，
+    // 不按条目逐条计数（否则顶栏「待完善 N 项」会比面板里的行数多出一倍，用户无从下手）
     visibleModules.forEach(mod => {
-      if (mod.type !== 'skills') {
-        (mod.items as import('@/app/types/resume').ResumeItem[]).forEach((item) => {
-          checks.push(!!(item.description && item.description.trim()));
-        });
-      }
+      if (mod.type === 'skills') return;
+      const missing = (mod.items as import('@/app/types/resume').ResumeItem[])
+        .filter(item => !(item.description && item.description.trim())).length;
+      if (missing > 0) checks.push(false);
     });
 
     // 格式检查
@@ -403,12 +430,12 @@ export const EditorLayout: React.FC = () => {
       const curMargin = currentSettings.customPageMargin ?? 20;
       for (let m = curMargin - 2; m >= 16; m -= 2) {
         const target = m;
-        steps.push({ label: '页边距', apply: () => store.updateSettings({ customPageMargin: target }) });
+        steps.push({ label: '页边距', apply: () => store.updateSettings({ customPageMargin: target }, { transient: true }) });
       }
-      steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'compact' }) });
+      steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'compact' }, { transient: true }) });
     } else {
-      if (pageMargin === 'relaxed') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'standard' }) });
-      if (pageMargin !== 'compact') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'compact' }) });
+      if (pageMargin === 'relaxed') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'standard' }, { transient: true }) });
+      if (pageMargin !== 'compact') steps.push({ label: '页边距', apply: () => store.updateSettings({ pageMargin: 'compact' }, { transient: true }) });
     }
 
     // 2. 行间距压缩
@@ -417,23 +444,27 @@ export const EditorLayout: React.FC = () => {
       const curLH = currentSettings.customLineHeight ?? 1.5;
       for (let lh = curLH - 0.1; lh >= 1.4; lh -= 0.1) {
         const target = Math.round(lh * 100) / 100;
-        steps.push({ label: '行间距', apply: () => store.updateSettings({ customLineHeight: target }) });
+        steps.push({ label: '行间距', apply: () => store.updateSettings({ customLineHeight: target }, { transient: true }) });
       }
-      steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'compact' }) });
+      steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'compact' }, { transient: true }) });
     } else {
-      if (lineHeight === 'relaxed') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'standard' }) });
-      if (lineHeight !== 'compact') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'compact' }) });
+      if (lineHeight === 'relaxed') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'standard' }, { transient: true }) });
+      if (lineHeight !== 'compact') steps.push({ label: '行间距', apply: () => store.updateSettings({ lineHeight: 'compact' }, { transient: true }) });
     }
 
-    // 3. 字体逐步缩小（每次 -0.02，最低到 0.80）
-    const fontMin = 0.80;
+    // 3. 字体逐步缩小（每次 -0.02，下限与样式面板的字号滑块最小值一致）
+    const fontMin = 0.85;
     const fontStep = 0.02;
     for (let fs = fontSizeScale - fontStep; fs >= fontMin; fs -= fontStep) {
       const target = Math.round(fs * 100) / 100;
-      steps.push({ label: '字体', apply: () => store.updateSettings({ fontSizeScale: target }) });
+      steps.push({ label: '字体', apply: () => store.updateSettings({ fontSizeScale: target }, { transient: true }) });
     }
 
-    // 逐步执行，每步后实时测量
+    // 逐步执行，每步后实时测量。
+    // 整段只在开始时留**一份**变更前快照：中间态全部 transient，不进历史。
+    // 旧实现每步都 push（最多 30+ 步），一次「适应一页」就把用户之前的编辑历史
+    // 从 30 条上限里挤光，且 undo 要按几十次。
+    store.pushHistory();
     let appliedCount = 0;
     for (const step of steps) {
       step.apply();
@@ -494,10 +525,10 @@ export const EditorLayout: React.FC = () => {
   if (!resumeData) return <div className="flex h-screen items-center justify-center">加载中...</div>;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 overflow-hidden font-sans text-gray-900">
+    <div className="print-branch flex flex-col h-screen bg-gray-100 overflow-hidden font-sans text-gray-900">
       {/* Top Navigation */}
       <header className={cn(
-        "bg-white text-gray-900 border-b border-gray-200 flex items-center justify-between flex-shrink-0 z-30",
+        "editor-chrome bg-white text-gray-900 border-b border-gray-200 flex items-center justify-between flex-shrink-0 z-30",
         isMobile ? "h-14 px-3" : "h-16 px-4"
       )}>
         <div className="flex items-center gap-2 md:gap-3">
@@ -513,9 +544,12 @@ export const EditorLayout: React.FC = () => {
           {!isMobile && <div className="h-6 w-px bg-gray-200 mx-1"></div>}
           
           <div className="flex flex-col">
-            <input 
+            {/* 简历标题：统一走输入原语 + 防抖（裸 input 会每敲一个字进一次撤销历史并整页重渲染） */}
+            <DebouncedInput
+              aria-label="简历标题"
               value={resumeData.title}
-              onChange={(e) => updateResume(activeResumeId, { title: e.target.value })}
+              onChange={(val) => updateResume(activeResumeId, { title: val })}
+              delay={500}
               className={cn(
                 "bg-transparent border-none text-gray-900 font-bold focus:ring-0 p-0 placeholder-gray-400",
                 isMobile ? "text-xs w-32" : "text-sm w-48"
@@ -534,10 +568,16 @@ export const EditorLayout: React.FC = () => {
                     <AlertTriangle size={10} className="text-red-500" />
                     <span className="text-red-500">保存失败</span>
                   </>
-                ) : (
+                ) : saveStatus === 'saved' ? (
                   <>
                     <CheckCircle2 size={10} className="text-green-600" />
                     已保存
+                  </>
+                ) : (
+                  <>
+                    {/* idle：本次会话还没写过盘，不能说「已保存」 */}
+                    <Cloud size={10} className="text-gray-400" />
+                    自动保存
                   </>
                 )}
               </div>
@@ -671,22 +711,9 @@ export const EditorLayout: React.FC = () => {
                         <div className="text-xs text-gray-400">高清打印版</div>
                       </div>
                     </button>
-                    {resumeData?.template === 'atsMono' && (
-                      <button
-                        onClick={() => {
-                          handleExportPdfWithConfirm();
-                          setShowExportMenu(false);
-                          showToast('info', '网申版 PDF 文字可选中；Word 版网申更稳');
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700 border-t border-gray-100"
-                      >
-                        <FileText size={16} className="text-green-600" />
-                        <div>
-                          <div className="font-medium">网申版 PDF（推荐）</div>
-                          <div className="text-xs text-gray-400">单栏可解析，文字可选中，网申系统友好</div>
-                        </div>
-                      </button>
-                    )}
+                    {/* 「网申版 PDF」入口已删除：桌面 printToPDF 不接收边距/文件名参数，
+                        它与上面的「导出 PDF」调的是同一个 handler，只多一条 toast —— 属于假功能。
+                        网申场景改由「导出 Word」承担（纯文本、网申系统可解析）。 */}
                     <button
                       onClick={handleExportPng}
                       className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700 border-t border-gray-100"
@@ -742,10 +769,10 @@ export const EditorLayout: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="print-branch flex flex-1 overflow-hidden relative">
         {/* Left Sidebar - 移动端响应式 */}
         <div className={cn(
-          "bg-white border-r border-gray-200 z-20 shadow-xl transition-all duration-300 overflow-hidden",
+          "editor-chrome bg-white border-r border-gray-200 z-20 shadow-xl transition-all duration-300 overflow-hidden",
           isMobile 
             ? cn(
                 "fixed inset-0 top-16",
@@ -764,14 +791,14 @@ export const EditorLayout: React.FC = () => {
         <div 
           ref={previewContainerRef}
           className={cn(
-            "flex-1 overflow-hidden relative flex flex-col items-center onboarding-preview",
+            "print-branch flex-1 overflow-hidden relative flex flex-col items-center onboarding-preview",
             isMobile && mobileView !== 'preview' && "hidden"
           )}
           style={{ backgroundColor: '#e8eaed' }}
         >
           {/* 超出一页警告 */}
           {contentOverflow > 100 && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 flex items-center gap-3 shadow-lg">
+            <div className="editor-chrome absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 flex items-center gap-3 shadow-lg">
               <AlertTriangle size={16} className="text-yellow-600" />
               <span className="text-sm text-yellow-800 font-medium">
                 内容超出一页（约 {pageCount} 页）
@@ -788,7 +815,7 @@ export const EditorLayout: React.FC = () => {
 
           {/* Toolbar */}
           <div className={cn(
-            "absolute z-30 bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 rounded-full px-4 py-2 flex items-center gap-3 transition-transform hover:scale-105",
+            "editor-chrome absolute z-30 bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 rounded-full px-4 py-2 flex items-center gap-3 transition-transform hover:scale-105",
             isMobile ? "bottom-20" : "bottom-8"
           )}>
             <button 
@@ -828,7 +855,7 @@ export const EditorLayout: React.FC = () => {
           </div>
 
           {/* Checklist Badge */}
-          <div className="absolute top-6 right-6 z-30">
+          <div className="editor-chrome absolute top-6 right-6 z-30">
             <ScoreBadge
               completed={checklistCounts.completed}
               total={checklistCounts.total}
@@ -838,9 +865,10 @@ export const EditorLayout: React.FC = () => {
           </div>
 
           {/* Resume Canvas Container */}
-          <div className="flex-1 w-full overflow-auto flex justify-center p-8 pb-32">
+          <div className="print-branch flex-1 w-full overflow-auto flex justify-center p-8 pb-32">
             {/* 尺寸包裹层：显式设置缩放后的宽高，让 overflow-auto 正确计算滚动区域 */}
             <div
+              className="print-branch"
               style={{
                 width: contentDims.width * zoom,
                 height: contentDims.height * zoom,
@@ -850,13 +878,13 @@ export const EditorLayout: React.FC = () => {
             >
               <div
                 ref={zoomContainerRef}
-                className="absolute top-0 left-0 origin-top-left"
+                className="print-branch absolute top-0 left-0 origin-top-left"
                 style={{ transform: `scale(${zoom})`, willChange: 'transform' }}
               >
                 {/* 简历纸张 */}
                 <div 
                   ref={printRef} 
-                  className="shadow-2xl transition-shadow duration-300 ease-out bg-white"
+                  className="print-branch shadow-2xl transition-shadow duration-300 ease-out bg-white"
                 >
                   <ResumeRenderer data={deferredResumeData!} />
                 </div>
@@ -864,7 +892,7 @@ export const EditorLayout: React.FC = () => {
                 {/* A4 分页指示线 - 仅预览时显示，打印时隐藏 */}
                 {contentOverflow > 100 && (
                   <div
-                    className="absolute left-0 right-0 pointer-events-none print:hidden"
+                    className="editor-chrome absolute left-0 right-0 pointer-events-none print:hidden"
                     style={{ top: '297mm' }}
                   >
                     <div className="border-t-2 border-dashed border-red-400 relative">
@@ -880,7 +908,8 @@ export const EditorLayout: React.FC = () => {
         </div>
       </div>
 
-      {/* Overlays */}
+      {/* Overlays：导出态整体隐藏（面板可能在导出时仍开着） */}
+      <div className="editor-chrome contents">
       <DiagnosticPanel 
         isOpen={showDiagnostic} 
         onClose={() => setShowDiagnostic(false)} 
@@ -900,8 +929,6 @@ export const EditorLayout: React.FC = () => {
       
       {showOnboarding && <OnboardingOverlay onComplete={handleOnboardingComplete} />}
 
-      {/* (PDF 导出确认弹窗已移除 —— jsPDF 直接生成文件下载，自动分页) */}
-
       {/* 导出加载遮罩 */}
       {isExporting && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center">
@@ -911,6 +938,7 @@ export const EditorLayout: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

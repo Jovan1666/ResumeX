@@ -130,15 +130,36 @@ export interface ResumeStorage {
   importBackup(file: File): Promise<{ success: boolean; message: string }>;
 }
 
+/**
+ * 数据存在但解析不出来。
+ * 必须抛错而不是返回 null：返回 null 会被上层当成「没有数据」，
+ * 于是用户看到「还没有简历」，新建一份后把空 state 写回 → 原有数据被永久覆盖。
+ */
+export class CorruptedDataError extends Error {
+  constructor(cause?: unknown) {
+    super('本地数据无法读取，可能已损坏');
+    this.name = 'CorruptedDataError';
+    void cause;
+  }
+}
+
 export function createResumeStorage(): ResumeStorage {
   return {
     async load(): Promise<PersistedState | null> {
       // 优先读 idb
+      let raw: unknown;
       try {
-        const raw = await get(IDB_STORE_KEY, customStore);
-        const state = parseStoredState(raw);
-        if (state) return state;
-        // idb 空 → 尝试迁移旧 localStorage
+        raw = await get(IDB_STORE_KEY, customStore);
+      } catch (e) {
+        // idb 读取失败：尝试从 localStorage 信封兜底（只读恢复场景）
+        console.error('[storage] 读取 IndexedDB 失败：', e);
+        const legacy = readLegacyEnvelope();
+        if (legacy?.state) return legacy.state;
+        throw new CorruptedDataError(e);
+      }
+
+      if (raw == null) {
+        // 真的没有数据 → 尝试迁移旧 localStorage，仍无则返回 null（首次使用）
         const migrated = await migrateLegacyToIdb();
         if (migrated) {
           const after = await get(IDB_STORE_KEY, customStore);
@@ -146,12 +167,15 @@ export function createResumeStorage(): ResumeStorage {
           if (s2) return s2;
         }
         return null;
-      } catch (e) {
-        // idb 读取失败：尝试从 localStorage 信封兜底（只读恢复场景）
-        console.error('[storage] 读取 IndexedDB 失败：', e);
-        const legacy = readLegacyEnvelope();
-        return legacy?.state ?? null;
       }
+
+      const state = parseStoredState(raw);
+      if (!state) {
+        // 有记录但读不懂：宁可停在恢复屏，也不能当作空库继续写盘
+        console.error('[storage] IndexedDB 内容无法解析，拒绝以空数据覆盖');
+        throw new CorruptedDataError();
+      }
+      return state;
     },
 
     async save(state: PersistedState): Promise<void> {

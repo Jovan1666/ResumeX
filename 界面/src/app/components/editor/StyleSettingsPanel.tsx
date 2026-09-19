@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useResumeStore } from '@/app/store/useResumeStore';
-import { Settings, Type, AlignJustify, Maximize2, X, Image as ImageIcon, Columns2 } from 'lucide-react';
+import { Settings, Type, AlignJustify, Maximize2, X, Image as ImageIcon, Columns2, SlidersHorizontal, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/app/lib/utils';
-import { SpacingLevel, FontFamily } from '@/app/types/theme';
+import { SpacingLevel, FontFamily, GlobalSettings, ThemeColor, themes, isTwoColumnTemplate } from '@/app/types/theme';
+
+/** 主题色展示顺序（按使用频率，不是枚举顺序） */
+const THEME_ORDER: ThemeColor[] = ['campus', 'navy', 'ink', 'slate', 'rust', 'pine'];
 
 interface StyleSettingsPanelProps {
   isOpen: boolean;
@@ -25,10 +28,11 @@ const lineHeightOptions: { value: SpacingLevel; label: string; desc: string }[] 
   { value: 'relaxed', label: '宽松', desc: '留白更多' },
 ];
 
+/** 标签必须与 fonts.css 的 [data-margin] 实际值一致（12 / 16 / 20mm） */
 const marginOptions: { value: SpacingLevel; label: string; desc: string }[] = [
-  { value: 'compact', label: '窄', desc: '15mm' },
-  { value: 'standard', label: '标准', desc: '20mm' },
-  { value: 'relaxed', label: '宽', desc: '25mm' },
+  { value: 'compact', label: '窄', desc: '12mm' },
+  { value: 'standard', label: '标准', desc: '16mm' },
+  { value: 'relaxed', label: '宽', desc: '20mm' },
 ];
 
 const fontFamilyOptions: { value: FontFamily; label: string; desc: string; previewFont: string }[] = [
@@ -41,12 +45,39 @@ const fontFamilyOptions: { value: FontFamily; label: string; desc: string; previ
   { value: 'mono', label: '等宽字体', desc: '代码技术风格', previewFont: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace" },
 ];
 
+/** 小 chips（位置/形状/宽度等离散开关） */
+const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      'px-2 py-1 rounded text-xs border transition-colors',
+      active ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+    )}
+  >
+    {children}
+  </button>
+);
+
 export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, onClose }) => {
-  // 细粒度选择器：仅订阅 settings
+  // 细粒度选择器：仅订阅 settings 与当前模板
   const settings = useResumeStore(state => state.resumes[state.activeResumeId]?.settings);
+  const template = useResumeStore(state => state.resumes[state.activeResumeId]?.template);
   const updateSettings = useResumeStore(state => state.updateSettings);
+  const pushHistory = useResumeStore(state => state.pushHistory);
+
+  // 连续手势（拖滑杆）：开始时入栈一次，中间态一律 transient，避免一次拖动灌满历史栈
+  const inGesture = useRef(false);
+  const beginGesture = () => { if (!inGesture.current) { pushHistory(); inGesture.current = true; } };
+  const endGesture = () => { inGesture.current = false; };
+  const gestureChange = (partial: Partial<GlobalSettings>) => {
+    updateSettings(partial, { transient: inGesture.current });
+  };
 
   if (!settings) return null;
+
+  const twoColumn = isTwoColumnTemplate(template);
+  const hasPhotoSlot = template !== 'atsMono';
 
   return (
     <AnimatePresence>
@@ -96,13 +127,17 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                     type="range"
                     min="0.85"
                     max="1.1"
-                    step="0.05"
+                    step="0.01"
                     value={settings.fontSizeScale || 1}
-                    onChange={(e) => updateSettings({ fontSizeScale: parseFloat(e.target.value) })}
+                    onPointerDown={beginGesture}
+                    onPointerUp={endGesture}
+                    onPointerCancel={endGesture}
+                    onBlur={endGesture}
+                    onChange={(e) => gestureChange({ fontSizeScale: parseFloat(e.target.value) })}
                     className="w-full accent-blue-600"
                   />
                   <div className="flex justify-between text-xs text-gray-400">
-                    <span>85%</span>
+                    <span>85%（适应一页下限）</span>
                     <span>100%</span>
                     <span>110%</span>
                   </div>
@@ -149,7 +184,7 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                       )}
                     >
                       <div className={cn(
-                        "font-medium text-sm",
+                        "font-medium text-sm whitespace-nowrap",
                         settings.lineHeight === opt.value ? "text-blue-700" : "text-gray-700"
                       )}>
                         {opt.label}
@@ -167,12 +202,12 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                     )}
                   >
                     <div className={cn(
-                      "font-medium text-sm",
+                      "font-medium text-sm whitespace-nowrap",
                       settings.lineHeight === 'custom' ? "text-blue-700" : "text-gray-700"
                     )}>
                       自定义
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5">精确调节</div>
+                    <div className="text-xs text-gray-400 mt-0.5 whitespace-nowrap">精确调节</div>
                   </button>
                 </div>
                 {settings.lineHeight === 'custom' && (
@@ -183,7 +218,11 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                       max="2.0"
                       step="0.05"
                       value={settings.customLineHeight ?? 1.5}
-                      onChange={(e) => updateSettings({ customLineHeight: parseFloat(e.target.value) })}
+                      onPointerDown={beginGesture}
+                      onPointerUp={endGesture}
+                      onPointerCancel={endGesture}
+                      onBlur={endGesture}
+                      onChange={(e) => gestureChange({ customLineHeight: parseFloat(e.target.value) })}
                       className="w-full accent-blue-600"
                     />
                     <div className="flex justify-between text-xs text-gray-400">
@@ -202,7 +241,7 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                   <h3 className="font-medium text-gray-800">页边距</h3>
                   {settings.pageMargin === 'custom' && (
                     <span className="ml-auto text-sm text-blue-600 font-medium">
-                      {settings.customPageMargin ?? 20}mm
+                      {settings.customPageMargin ?? 16}mm
                     </span>
                   )}
                 </div>
@@ -219,7 +258,7 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                       )}
                     >
                       <div className={cn(
-                        "font-medium text-sm",
+                        "font-medium text-sm whitespace-nowrap",
                         settings.pageMargin === opt.value ? "text-blue-700" : "text-gray-700"
                       )}>
                         {opt.label}
@@ -228,7 +267,7 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                     </button>
                   ))}
                   <button
-                    onClick={() => updateSettings({ pageMargin: 'custom', customPageMargin: settings.customPageMargin ?? 20 })}
+                    onClick={() => updateSettings({ pageMargin: 'custom', customPageMargin: settings.customPageMargin ?? 16 })}
                     className={cn(
                       "p-3 rounded-lg border transition-all text-center",
                       settings.pageMargin === 'custom'
@@ -237,12 +276,12 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                     )}
                   >
                     <div className={cn(
-                      "font-medium text-sm",
+                      "font-medium text-sm whitespace-nowrap",
                       settings.pageMargin === 'custom' ? "text-blue-700" : "text-gray-700"
                     )}>
                       自定义
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5">精确调节</div>
+                    <div className="text-xs text-gray-400 mt-0.5 whitespace-nowrap">精确调节</div>
                   </button>
                 </div>
                 {settings.pageMargin === 'custom' && (
@@ -252,17 +291,60 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                       min="10"
                       max="30"
                       step="1"
-                      value={settings.customPageMargin ?? 20}
-                      onChange={(e) => updateSettings({ customPageMargin: parseInt(e.target.value) })}
+                      value={settings.customPageMargin ?? 16}
+                      onPointerDown={beginGesture}
+                      onPointerUp={endGesture}
+                      onPointerCancel={endGesture}
+                      onBlur={endGesture}
+                      onChange={(e) => gestureChange({ customPageMargin: parseInt(e.target.value, 10) })}
                       className="w-full accent-blue-600"
                     />
                     <div className="flex justify-between text-xs text-gray-400">
                       <span>10mm 窄</span>
-                      <span>20mm</span>
+                      <span>标准 16mm</span>
                       <span>30mm 宽</span>
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* 主题色：模板只决定版式，强调色由用户说了算。
+                  切模板会带一个默认色，但必须能在这里改回来 */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Palette size={16} className="text-gray-500" />
+                  <h3 className="font-medium text-gray-800">主题色</h3>
+                  <span className="ml-auto text-xs text-gray-400">
+                    {themes[settings.themeColor]?.nameZh || '墨黑'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {THEME_ORDER.map((id) => {
+                    const t = themes[id];
+                    const active = settings.themeColor === id;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => updateSettings({ themeColor: id })}
+                        title={t.sceneHint}
+                        aria-pressed={active}
+                        className={cn(
+                          "p-2 rounded-lg border transition-all text-left",
+                          active ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                        )}
+                      >
+                        <span
+                          className="block h-4 w-full rounded"
+                          style={{ backgroundColor: t.colors.primary }}
+                        />
+                        <span className="mt-1.5 block text-xs whitespace-nowrap text-gray-700">{t.nameZh}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-gray-400 leading-relaxed">
+                  {themes[settings.themeColor]?.sceneHint}
+                </p>
               </div>
 
               {/* Font Family */}
@@ -321,7 +403,11 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                   max="14"
                   step="1"
                   value={settings.moduleGap ?? 6}
-                  onChange={(e) => updateSettings({ moduleGap: parseInt(e.target.value) })}
+                  onPointerDown={beginGesture}
+                  onPointerUp={endGesture}
+                  onPointerCancel={endGesture}
+                  onBlur={endGesture}
+                  onChange={(e) => gestureChange({ moduleGap: parseInt(e.target.value, 10) })}
                   className="w-full accent-blue-600"
                 />
                 <div className="flex justify-between text-xs text-gray-400">
@@ -331,111 +417,168 @@ export const StyleSettingsPanel: React.FC<StyleSettingsPanelProps> = ({ isOpen, 
                 </div>
               </div>
 
-              {/* 照片设置 */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ImageIcon size={16} className="text-gray-500" />
-                  <h3 className="font-medium text-gray-800">照片设置</h3>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-14">位置</span>
-                    <div className="flex gap-1">
-                      {([['right', '右上'], ['top', '顶部']] as const).map(([v, label]) => (
-                        <button
-                          key={v}
-                          onClick={() => updateSettings({ photoPosition: v })}
-                          className={cn(
-                            "px-2 py-1 rounded text-xs border transition-colors",
-                            (settings.photoPosition || 'right') === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+              {/* 照片设置（极简黑白不显示照片 → 整块隐藏，不留假按钮） */}
+              {hasPhotoSlot && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <ImageIcon size={16} className="text-gray-500" />
+                    <h3 className="font-medium text-gray-800">照片设置</h3>
+                    {twoColumn && <span className="ml-auto text-xs text-gray-400">位置固定在侧栏顶部</span>}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-14">形状</span>
-                    <div className="flex gap-1">
-                      {([['rect', '矩形'], ['rounded', '圆角']] as const).map(([v, label]) => (
-                        <button
-                          key={v}
-                          onClick={() => updateSettings({ photoShape: v })}
-                          className={cn(
-                            "px-2 py-1 rounded text-xs border transition-colors",
-                            (settings.photoShape || 'rect') === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                  <div className="space-y-3">
+                    {/* 位置：只有单栏版式有「右上 / 顶部居中」两种真实可选位置 */}
+                    {!twoColumn && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-14">位置</span>
+                        <div className="flex gap-1">
+                          {([['right', '右上'], ['top', '顶部居中']] as const).map(([v, label]) => (
+                            <Chip key={v} active={(settings.photoPosition || 'right') === v} onClick={() => updateSettings({ photoPosition: v })}>
+                              {label}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-14">形状</span>
+                      <div className="flex gap-1">
+                        {([['rect', '矩形'], ['rounded', '圆角']] as const).map(([v, label]) => (
+                          <Chip key={v} active={(settings.photoShape || 'rect') === v} onClick={() => updateSettings({ photoShape: v })}>
+                            {label}
+                          </Chip>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-14">尺寸</span>
-                    <div className="flex gap-1">
-                      {([['sm', '小'], ['md', '中'], ['lg', '大']] as const).map(([v, label]) => (
-                        <button
-                          key={v}
-                          onClick={() => updateSettings({ photoSize: v })}
-                          className={cn(
-                            "px-2 py-1 rounded text-xs border transition-colors",
-                            (settings.photoSize || 'md') === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-14">尺寸</span>
+                      <div className="flex gap-1">
+                        {([['sm', '小'], ['md', '中'], ['lg', '大']] as const).map(([v, label]) => (
+                          <Chip key={v} active={(settings.photoSize || 'md') === v} onClick={() => updateSettings({ photoSize: v })}>
+                            {label}
+                          </Chip>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* 双栏模板：宽度 / 底色（仅 compactSplit 生效，全局保留以免切换丢设置） */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Columns2 size={16} className="text-gray-500" />
-                  <h3 className="font-medium text-gray-800">双栏排版</h3>
-                  <span className="ml-auto text-xs text-gray-400">仅双栏模板生效</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-14">左栏宽</span>
-                    <div className="flex gap-1">
-                      {([25, 30, 35] as const).map((v) => (
-                        <button
-                          key={v}
-                          onClick={() => updateSettings({ splitWidth: v })}
-                          className={cn(
-                            "px-2 py-1 rounded text-xs border transition-colors",
-                            (settings.splitWidth || 25) === v ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500"
-                          )}
-                        >
-                          {v}%
-                        </button>
-                      ))}
+              {/* 侧栏排版：只有 sidebar（双栏）模板消费这些值，其它模板整块隐藏 */}
+              {twoColumn && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Columns2 size={16} className="text-gray-500" />
+                    <h3 className="font-medium text-gray-800">侧栏排版</h3>
+                    <span className="ml-auto text-xs text-gray-400">仅侧栏模板</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-14">侧栏位置</span>
+                      <div className="flex gap-1">
+                        {([['left', '左侧'], ['right', '右侧']] as const).map(([v, label]) => (
+                          <Chip key={v} active={(settings.sidebarSide || 'left') === v} onClick={() => updateSettings({ sidebarSide: v })}>
+                            {label}
+                          </Chip>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-14">侧栏宽度</span>
+                      <div className="flex gap-1 flex-wrap">
+                        {([25, 30, 35, 50] as const).map((v) => (
+                          <Chip key={v} active={(settings.sidebarWidth ?? settings.splitWidth ?? 30) === v} onClick={() => updateSettings({ sidebarWidth: v })}>
+                            {v === 50 ? '50% 等宽' : `${v}%`}
+                          </Chip>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-14">侧栏底色</span>
+                      <div className="flex gap-1">
+                        {([
+                          ['light', '浅灰', '#FAFAFA'],
+                          ['tinted', '主题浅底', 'var(--color-secondary)'],
+                          ['white', '纯白', '#FFFFFF'],
+                          ['primary', '主题色', 'var(--color-primary)'],
+                        ] as const).map(([v, label, swatch]) => (
+                          <button
+                            key={v}
+                            type="button"
+                            title={label}
+                            onClick={() => updateSettings({ sidebarTone: v })}
+                            className={cn(
+                              'w-8 h-6 rounded border transition-colors',
+                              (settings.sidebarTone ?? (settings.splitColor ? (settings.splitColor === '#FFFFFF' ? 'white' : settings.splitColor === '#EFF4FB' ? 'tinted' : 'light') : 'light')) === v
+                                ? 'border-blue-500 ring-1 ring-blue-400'
+                                : 'border-gray-200'
+                            )}
+                            style={{ backgroundColor: swatch }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-14">左栏底色</span>
-                    <div className="flex gap-1">
-                      {([['#FAFAFA', '浅灰'], ['#EFF4FB', '浅蓝'], ['#FFFFFF', '纯白']] as const).map(([v, label]) => (
-                        <button
-                          key={v}
-                          onClick={() => updateSettings({ splitColor: v as '#FAFAFA' | '#EFF4FB' | '#FFFFFF' })}
-                          className={cn(
-                            "w-8 h-6 rounded border transition-colors",
-                            (settings.splitColor || '#FAFAFA') === v ? "border-blue-500 ring-1 ring-blue-400" : "border-gray-200"
-                          )}
-                          style={{ backgroundColor: v }}
-                          title={label}
-                        />
-                      ))}
-                    </div>
+                </div>
+              )}
+
+              {/* 版式开关：简洁通用（姓名字号 / 地点）与线框档案（细线框 / 浅底色块） */}
+              {(template === 'classic' || template === 'frame') && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <SlidersHorizontal size={16} className="text-gray-500" />
+                    <h3 className="font-medium text-gray-800">版式选项</h3>
+                    <span className="ml-auto text-xs text-gray-400">当前模板</span>
+                  </div>
+                  <div className="space-y-3">
+                    {template === 'frame' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-14">标题装饰</span>
+                        <div className="flex gap-1">
+                          {([['line', '整页细线框'], ['band', '栏目浅底色块']] as const).map(([v, label]) => (
+                            <Chip key={v} active={(settings.frameStyle || 'line') === v} onClick={() => updateSettings({ frameStyle: v })}>
+                              {label}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {template === 'classic' && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 w-14">姓名字号</span>
+                          <div className="flex gap-1">
+                            {([['sm', '小'], ['md', '中'], ['lg', '大']] as const).map(([v, label]) => (
+                              <Chip key={v} active={(settings.nameSize || 'md') === v} onClick={() => updateSettings({ nameSize: v })}>
+                                {label}
+                              </Chip>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 w-14">条目地点</span>
+                          <div className="flex gap-1">
+                            {([['auto', '跟随模块'], ['on', '总是显示'], ['off', '不显示']] as const).map(([v, label]) => {
+                              const current = settings.showItemLocation === undefined ? 'auto' : settings.showItemLocation ? 'on' : 'off';
+                              return (
+                                <Chip
+                                  key={v}
+                                  active={current === v}
+                                  onClick={() => updateSettings({ showItemLocation: v === 'auto' ? undefined : v === 'on' })}
+                                >
+                                  {label}
+                                </Chip>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <p className="text-[11px] text-gray-400 leading-relaxed">
+                      栏目标题的下划线 / 色条 / 纯加粗在「模块设置」里逐模块切换。
+                    </p>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* 打码模式（分享预览用，不影响数据） */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200">

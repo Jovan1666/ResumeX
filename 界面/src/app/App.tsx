@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { HashRouter, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { ToastProvider } from '@/app/components/ui/toast';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { useResumeStore } from '@/app/store/useResumeStore';
@@ -25,7 +25,7 @@ function lazyWithRetry<T extends React.ComponentType>(
 }
 
 // 懒加载路由组件，提升首屏加载速度（含网络故障重试）
-const LandingPage = lazyWithRetry(() => import('@/app/components/landing/LandingPage').then(m => ({ default: m.LandingPage })));
+const AboutPage = lazyWithRetry(() => import('@/app/components/landing/AboutPage').then(m => ({ default: m.AboutPage })));
 const Dashboard = lazyWithRetry(() => import('@/app/components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
 const EditorLayout = lazyWithRetry(() => import('@/app/components/editor/EditorLayout').then(m => ({ default: m.EditorLayout })));
 
@@ -44,9 +44,9 @@ const NotFoundPage: React.FC = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
     <div className="text-center">
       <h1 className="text-6xl font-bold text-gray-300 mb-4">404</h1>
-      <p className="text-gray-500 mb-6">页面不存在</p>
+      <p className="text-gray-500 mb-6">没有这个页面，你的简历都还在。</p>
       <Link to="/" className="text-blue-600 hover:text-blue-700 font-medium">
-        返回首页
+        返回我的简历
       </Link>
     </div>
   </div>
@@ -75,8 +75,11 @@ const AppInner: React.FC = () => {
     <HashRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* 首屏直达简历列表（不再有营销落地页） */}
+          <Route path="/" element={<Dashboard />} />
+          {/* 旧链接兼容：/dashboard 重定向到 / */}
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/editor" element={<EditorLayout />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

@@ -6,7 +6,7 @@ const mockResumeData: ResumeData = {
   id: 'r1',
   title: '我的简历',
   lastModified: Date.now(),
-  template: 'campusClean',
+  template: 'classic',
   profile: {
     name: '张/三',
     title: '前端:工程师',

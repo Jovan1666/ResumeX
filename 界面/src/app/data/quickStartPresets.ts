@@ -1,105 +1,73 @@
-import { TemplateId, ModuleType } from '@/app/types/resume';
+import { ModuleType } from '@/app/types/resume';
 
-export interface IdentityOption {
-  id: string;
+/**
+ * 「一键预置模块」的纯数据源（供编辑器调用）。
+ *
+ * 背景：快速开始向导（QuickStartWizard）已删除 —— 新建简历零中间步骤，
+ * 直接进编辑器。需要「按身份预置模块顺序」时，由编辑器里的按钮调用 getPresetModules()。
+ *
+ * 注意：本文件只保留模块数据，不再包含任何 TemplateId 字面量
+ * （模板与主题的选择属于编辑器/模板系统的职责）。
+ */
+
+/** 预置角色：只保留真正会改变模块顺序的三个身份 */
+export type PresetRole = 'fresh' | 'working' | 'freelance';
+
+export interface PresetModule {
+  type: ModuleType;
+  title: string;
+}
+
+export interface PresetRoleOption {
+  id: PresetRole;
   label: string;
-  icon: string;
   description: string;
 }
 
-export interface JobCategoryOption {
-  id: string;
-  label: string;
-  icon: string;
-}
-
-export interface QuickStartPreset {
-  templateId: TemplateId;
-  moduleOrder: { type: ModuleType; title: string }[];
-}
-
-export const identities: IdentityOption[] = [
-  { id: 'fresh', label: '应届生', icon: '🎓', description: '应届毕业生或在校生' },
-  { id: 'working', label: '在职跳槽', icon: '💼', description: '有工作经验，寻找新机会' },
-  { id: 'freelance', label: '自由职业', icon: '🚀', description: '自由职业者或创业者' },
+/** 角色选项（纯数据，编辑器自己决定怎么展示） */
+export const presetRoles: PresetRoleOption[] = [
+  { id: 'fresh', label: '应届生', description: '教育背景优先，含实习与校园经历' },
+  { id: 'working', label: '在职跳槽', description: '工作与项目经历优先' },
+  { id: 'freelance', label: '自由职业', description: '项目作品优先' },
 ];
 
-export const jobCategories: JobCategoryOption[] = [
-  { id: 'tech', label: '技术开发', icon: '💻' },
-  { id: 'product', label: '产品运营', icon: '📊' },
-  { id: 'finance', label: '金融财务', icon: '📈' },
-  { id: 'education', label: '教育医疗', icon: '📚' },
-  { id: 'admin', label: '行政人事', icon: '👥' },
-  { id: 'design', label: '设计创意', icon: '🎨' },
-  { id: 'sales', label: '销售商务', icon: '🤝' },
-  { id: 'other', label: '其他', icon: '📋' },
-];
-
-// 新模板 id → 身份/岗位映射（只指向 8 套，禁止 creative/infographic/tech）
-const freshTemplateMap: Record<string, TemplateId> = {
-  tech: 'techPlain',
-  product: 'campusClean',
-  finance: 'navyBiz',
-  education: 'campusClean',
-  admin: 'civilFile',
-  design: 'campusClean',
-  sales: 'campusClean',
-  other: 'campusClean',
-};
-
-const workingTemplateMap: Record<string, TemplateId> = {
-  tech: 'techPlain',
-  product: 'jobClean',
-  finance: 'navyBiz',
-  education: 'navyBiz',
-  admin: 'civilFile',
-  design: 'jobClean',
-  sales: 'jobClean',
-  other: 'jobClean',
-};
-
-// 根据身份+岗位类别返回推荐配置（02 §4.6）
-export function getPreset(identity: string, jobCategory: string): QuickStartPreset {
-  // 应届生：教育 → 实习 → 项目 → 校园 → 技能 → 荣誉 → 评价
-  if (identity === 'fresh') {
-    const base: { type: ModuleType; title: string }[] = [
-      { type: 'education', title: '教育背景' },
-      { type: 'experience', title: '实习经历' },
-      { type: 'projects', title: '项目经历' },
-      { type: 'campus', title: '校园经历' },
-      { type: 'skills', title: '技能特长' },
-      { type: 'honors', title: '荣誉奖项' },
-    ];
-    return {
-      templateId: freshTemplateMap[jobCategory] || 'campusClean',
-      moduleOrder: base,
-    };
-  }
-
-  // 社招：工作 → 项目 → 教育 → 技能 → 荣誉 → 评价
-  const workingBase: { type: ModuleType; title: string }[] = [
+/** 各身份的模块顺序（02 §4.6） */
+const PRESET_MODULES: Record<PresetRole, PresetModule[]> = {
+  // 应届生：教育 → 实习 → 项目 → 校园 → 技能 → 荣誉
+  fresh: [
+    { type: 'education', title: '教育背景' },
+    { type: 'experience', title: '实习经历' },
+    { type: 'projects', title: '项目经历' },
+    { type: 'campus', title: '校园经历' },
+    { type: 'skills', title: '技能特长' },
+    { type: 'honors', title: '荣誉奖项' },
+  ],
+  // 社招：工作 → 项目 → 教育 → 技能 → 荣誉
+  working: [
     { type: 'experience', title: '工作经历' },
     { type: 'projects', title: '项目经历' },
     { type: 'education', title: '教育背景' },
     { type: 'skills', title: '技能特长' },
     { type: 'honors', title: '荣誉奖项' },
-  ];
-
+  ],
   // 自由职业：项目优先
-  if (identity === 'freelance') {
-    return {
-      templateId: workingTemplateMap[jobCategory] || 'jobClean',
-      moduleOrder: [
-        { type: 'projects', title: '项目经历' },
-        { type: 'experience', title: '工作经历' },
-        { type: 'skills', title: '技能特长' },
-        { type: 'education', title: '教育背景' },
-      ],
-    };
-  }
+  freelance: [
+    { type: 'projects', title: '项目经历' },
+    { type: 'experience', title: '工作经历' },
+    { type: 'skills', title: '技能特长' },
+    { type: 'education', title: '教育背景' },
+  ],
+};
 
-  return {
-    templateId: workingTemplateMap[jobCategory] || 'jobClean',
-    moduleOrder: workingBase,
-  };
+/** 判断任意字符串是否为合法预置角色 */
+export function isPresetRole(value: unknown): value is PresetRole {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PRESET_MODULES, value);
+}
+
+/**
+ * 取某角色的预置模块顺序。
+ * 返回浅拷贝，调用方可以安全地增删改（不会污染模块级常量）。
+ */
+export function getPresetModules(role: PresetRole): PresetModule[] {
+  return (PRESET_MODULES[role] ?? []).map((m) => ({ type: m.type, title: m.title }));
 }

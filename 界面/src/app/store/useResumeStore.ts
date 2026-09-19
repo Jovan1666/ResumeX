@@ -10,10 +10,11 @@ import {
   SkillItem,
   NewModuleItemType,
   ModuleItemType,
+  isValidTemplateId,
 } from '@/app/types/resume';
 import { emptyResumeData } from '@/app/data/initialData';
 import { v4 as uuidv4 } from 'uuid';
-import { GlobalSettings, ThemeColor } from '@/app/types/theme';
+import { GlobalSettings, ThemeColor, isThemeColor, TEMPLATE_THEME_DEFAULT } from '@/app/types/theme';
 import { UndoRedoManager } from '@/app/hooks/useUndoRedo';
 import {
   createResumeStorage,
@@ -39,6 +40,25 @@ const getHistoryManager = (resumeId: string): UndoRedoManager<ResumeData> => {
 let _hydrated = false;
 // 最近一次保存失败信息（UI 显示）
 let _lastSaveError: string | null = null;
+/**
+ * 状态位抑制位。
+ * zustand persist 的订阅在**任何** setState 上都会再调一次 setItem，
+ * 若在 setItem 内部写 saveStatus，就会形成
+ * setItem → setState → setItem → setState … 的无限写盘回环。
+ * setState 的监听器是同步触发的，所以同步置位即可切断回环。
+ */
+let _suppressStatusWrite = false;
+
+/** 更新保存状态，且不触发新一轮写盘 */
+function setSaveStatus(saveStatus: ResumeState['saveStatus']): void {
+  if (useResumeStore.getState().saveStatus === saveStatus) return;
+  _suppressStatusWrite = true;
+  try {
+    useResumeStore.setState({ saveStatus });
+  } finally {
+    _suppressStatusWrite = false;
+  }
+}
 
 // 安全的深拷贝（兼容 immer Proxy 对象）
 export function safeDeepClone<T>(obj: T): T {
@@ -63,44 +83,58 @@ export function isEditableTarget(el: EventTarget | null): boolean {
 
 // ---------------- 迁移表（persist version 3，逐字来自 02 §5.1 / §5.4） ----------------
 
-/** 旧 TemplateId → 新 TemplateId 全表 */
+/** 旧 TemplateId → 新 TemplateId 全表（02 §5.1 的旧 35 套 + 14 套合并后的 11 个被吸收 id） */
 export const TEMPLATE_ID_MIGRATE: Record<string, TemplateId> = {
-  tech: 'techPlain',
-  javaDev: 'techPlain',
-  aiDev: 'techPlain',
-  engineer: 'techPlain',
-  industry: 'techPlain',
-  aiRed: 'techPlain',
-  javaBlue: 'techPlain',
-  fePurple: 'techPlain',
-  feGreen: 'techPlain',
-  business: 'jobClean',
-  operations: 'jobClean',
-  opsOrange: 'jobClean',
-  sales: 'jobClean',
-  media: 'jobClean',
+  // —— 原「旧 35 套 → 新 8 套」映射，目标值改为合并后的 7 套 ——
+  tech: 'classic',
+  javaDev: 'classic',
+  aiDev: 'classic',
+  engineer: 'classic',
+  industry: 'classic',
+  aiRed: 'classic',
+  javaBlue: 'classic',
+  fePurple: 'classic',
+  feGreen: 'classic',
+  business: 'classic',
+  operations: 'classic',
+  opsOrange: 'classic',
+  sales: 'classic',
+  media: 'classic',
   minimal: 'atsMono',
   academic: 'atsMono',
   recruitBk: 'atsMono',
   eduDark: 'atsMono',
   enBw: 'enSimple',
-  vibrant: 'campusClean',
-  freshGrad: 'campusClean',
-  generalRed: 'campusClean',
-  gradBlue: 'campusClean',
-  professional: 'compactSplit',
-  twoColumnCompact: 'compactSplit',
-  hr: 'navyBiz',
-  accountant: 'navyBiz',
-  medical: 'navyBiz',
-  teacher: 'navyBiz',
+  vibrant: 'classic',
+  freshGrad: 'classic',
+  generalRed: 'classic',
+  gradBlue: 'classic',
+  professional: 'sidebar',
+  twoColumnCompact: 'sidebar',
+  hr: 'classic',
+  accountant: 'classic',
+  medical: 'classic',
+  teacher: 'classic',
   civilService: 'civilFile',
   civilGray: 'civilFile',
-  timeline: 'jobClean',
-  card: 'jobClean',
-  infographic: 'jobClean',
-  creative: 'jobClean',
-  executive: 'jobClean',
+  timeline: 'classic',
+  card: 'classic',
+  infographic: 'classic',
+  creative: 'classic',
+  executive: 'classic',
+
+  // —— 14 套 → 7 套合并：被吸收的 id 落到最接近的版式 ——
+  campusClean: 'classic',
+  jobClean: 'classic',
+  navyBiz: 'classic',
+  techPlain: 'classic',
+  navySidebar: 'sidebar',
+  sidebarRight: 'sidebar',
+  compactSplit: 'sidebar',
+  twoColumnEqual: 'sidebar',
+  bannerCampus: 'banner',
+  lineFrame: 'frame',
+  greenFresh: 'frame',
 };
 
 /** 旧主题色 → 新主题色 */
@@ -119,39 +153,33 @@ export const THEME_COLOR_MIGRATE: Record<string, ThemeColor> = {
   'emerald-green': 'pine',
 };
 
-/** 12 套默认模板 → 主题（02 §5.4 + 09 新增） */
-export const TEMPLATE_THEME: Record<TemplateId, ThemeColor> = {
-  campusClean: 'campus',
-  jobClean: 'navy',
-  navyBiz: 'navy',
-  civilFile: 'ink',
-  techPlain: 'slate',
-  atsMono: 'ink',
-  compactSplit: 'navy',
-  enSimple: 'ink',
-  bannerCampus: 'campus',
-  navySidebar: 'navy',
-  lineFrame: 'ink',
-  greenFresh: 'pine',
-  sidebarRight: 'campus',
-  twoColumnEqual: 'slate',
-};
+/** 7 套模板 → 默认主题（唯一定义在 types/theme.ts，避免两处漂移） */
+export const TEMPLATE_THEME: Record<TemplateId, ThemeColor> = TEMPLATE_THEME_DEFAULT;
 
-/** 单人简历数据迁移：模板、主题、字段补齐 */
+/** 单人简历数据迁移：模板、主题、字段补齐
+ *
+ * 关键约束：本函数在**每次启动的 hydrate 都会执行**，因此必须幂等且非破坏性。
+ * 旧实现无条件 `TEMPLATE_ID_MIGRATE[raw] || 'campusClean'`，而当前所有新 id 都不在
+ * 那张「旧 35 套 → 新 8 套」的表里 → 用户选好的模板与配色每次重启都被重置成
+ * campusClean/campus，并在下一次编辑时永久写盘。
+ */
 function migrateResumeData(r: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...r };
 
-  // 模板 id：旧 id → 新 id；未知/缺失 → campusClean
+  // 模板 id：已是受支持的新 id → 原样保留；旧 id → 查表；完全未知 → classic（默认模板）
   const rawTemplate = out.template as string | undefined;
-  out.template = (rawTemplate && TEMPLATE_ID_MIGRATE[rawTemplate]) || 'campusClean';
+  out.template = isValidTemplateId(rawTemplate)
+    ? rawTemplate
+    : (rawTemplate && TEMPLATE_ID_MIGRATE[rawTemplate]) || 'classic';
 
-  // 主题：旧 → 新；未知 → 按模板默认
+  // 主题：已是合法色 → 原样保留（尊重用户选择）；旧色 → 查表；未知 → 按模板默认
   const settings = { ...((out.settings ?? {}) as Record<string, unknown>) };
   const oldTheme = settings.themeColor as string | undefined;
-  settings.themeColor =
-    (oldTheme && THEME_COLOR_MIGRATE[oldTheme]) ||
-    TEMPLATE_THEME[out.template as TemplateId] ||
-    'ink';
+  settings.themeColor = isThemeColor(oldTheme)
+    ? oldTheme
+    : (oldTheme && THEME_COLOR_MIGRATE[oldTheme]) ||
+      TEMPLATE_THEME[out.template as TemplateId] ||
+      'ink';
   out.settings = settings;
 
   // profile 补齐
@@ -217,17 +245,21 @@ const storageAdapter: StateStorage = {
   getItem: () => null,
   setItem: async (_name, value) => {
     if (!_hydrated) return; // 水合门闩：未加载完成不写盘
+    if (_suppressStatusWrite) return; // 只是保存状态位变化，数据未变，不重复写盘
+    // 真实状态机：只有确实开始写盘才说 saving，成功才说 saved。
+    // 旧实现从不写 saving/dirty，UI 把 idle 渲染成绿色「已保存」= 在说谎。
+    setSaveStatus('saving');
     try {
       const parsed = JSON.parse(value) as { state: PersistedState };
       await resumeStorage.save(parsed.state);
       _lastSaveError = null;
-      useResumeStore.setState({ saveStatus: 'saved' });
+      setSaveStatus('saved');
     } catch (e) {
       _lastSaveError = isQuotaError(e)
-        ? '保存失败：存储空间不足，请导出备份'
-        : `保存失败：${String((e as Error)?.message ?? e)}`;
+        ? '本地存储空间不足，请先导出备份再删除不需要的简历'
+        : '保存失败，请导出备份后重试';
       console.error('[persist] 保存失败：', e);
-      useResumeStore.setState({ saveStatus: 'error' });
+      setSaveStatus('error');
     }
   },
   removeItem: async () => {
@@ -260,7 +292,12 @@ interface ResumeState {
   addResumeFromPreset: (templateId: TemplateId, moduleOrder?: { type: ModuleType; title: string }[]) => void;
 
   updateProfile: (field: keyof ResumeData['profile'], value: string) => void;
-  updateSettings: (settings: Partial<GlobalSettings>) => void;
+  /**
+   * transient=true 表示「连续手势中的中间态」（拖动滑块、一键适应的逐步逼近），
+   * 不写入撤销历史。调用方必须在手势开始时先 pushHistory()，
+   * 这样一次拖动 = 一步撤销，也不会把 30 条上限的历史栈挤满旧编辑。
+   */
+  updateSettings: (settings: Partial<GlobalSettings>, opts?: { transient?: boolean }) => void;
   setTemplate: (templateId: TemplateId) => void;
   addModule: (type: ModuleType, title: string) => void;
   removeModule: (moduleId: string) => void;
@@ -429,9 +466,9 @@ export const useResumeStore = create<ResumeState>()(
         });
       },
 
-      updateSettings: (settings) => {
+      updateSettings: (settings, opts) => {
         set((state) => {
-          const changed = pushHistorySnapshot(get);
+          const changed = opts?.transient ? false : pushHistorySnapshot(get);
           const resume = state.resumes[state.activeResumeId];
           if (!resume) return;
           Object.assign(resume.settings, settings);
@@ -705,3 +742,5 @@ export function getLastSaveError(): string | null {
 
 /** 再导出一份（供测试） */
 export { resumeStorage };
+/** persist 迁移入口（供测试：每次启动都会跑，必须幂等非破坏） */
+export { migratePersistedState };

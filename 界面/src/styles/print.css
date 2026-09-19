@@ -1,105 +1,107 @@
-/* 打印优化样式（02 §8.1 / 03 Task 5.1） */
+/*
+ * 导出与打印样式。
+ *
+ * 设计要点（重构后）：
+ * - `body.print-mode` 会真的作用在**屏幕**上（Electron 的 printToPDF 打的是当前窗口），
+ *   所以这里的规则不能只写在 @media print 里，否则导出时 #root 被隐藏 → 白屏 + 空白 PDF。
+ * - 不再依赖「隐藏 body 直接子节点」这种把整个 #root 干掉的做法。
+ *   改为：显式隐藏挂了 .editor-chrome 的部件 + 解除 .print-branch 祖先链的裁剪与缩放。
+ * - .print-branch 由 EditorLayout 挂在从根到纸面的每一层包裹元素上，是导出态的唯一钩子。
+ */
 
+/* ===== 导出态（屏幕 + 打印共用）===== */
+
+/* 编辑器所有非纸面部件 */
+body.print-mode .editor-chrome,
+body.print-mode .no-print {
+  display: none !important;
+}
+
+html.print-mode,
+body.print-mode {
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  background: #fff !important;
+}
+
+/* 解除祖先链的 flex 布局、滚动裁剪、固定尺寸与缩放 */
+body.print-mode .print-branch {
+  display: block !important;
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: #fff !important;
+}
+
+/* 纸面本身：恢复真实 A4 尺寸，去掉预览阴影 */
+body.print-mode .resume-page {
+  transform: none !important;
+  box-shadow: none !important;
+  width: 210mm !important;
+  min-height: 297mm !important;
+  margin: 0 !important;
+}
+
+/* ===== 打印分页 ===== */
 @media print {
-  /* 隐藏编辑器 chrome（不用 header 选择器，避免误藏简历姓名头） */
-  .editor-chrome {
-    display: none !important;
-  }
-  /* 旧的 class 一并隐藏（兼容） */
-  .no-print,
-  nav,
-  .sidebar,
-  .toolbar,
-  .score-badge,
-  .diagnostic-panel,
-  .modal,
-  .toast,
-  .onboarding-overlay,
-  button:not(.print-btn) {
-    display: none !important;
+  /* 导出态钩子在纯打印路径（浏览器 window.print）下同样需要生效 */
+  html:not(.print-mode) {
+    height: auto !important;
   }
 
-  /* 重置页面布局：仅简历 */
   body {
     margin: 0;
     padding: 0;
-    background: white !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    color-adjust: exact !important;
-  }
-
-  /* 预览区域全屏 */
-  .preview-container,
-  .editor-layout {
-    width: 100% !important;
-    height: auto !important;
-    overflow: visible !important;
-    position: static !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: white !important;
-  }
-
-  /* 简历内容：不缩放、阴影清除。
-     注意：禁止 .resume-page { padding: 0 !important }（会把 --rx-page-padding 打掉） */
-  .resume-content,
-  .resume-page,
-  [class*="ResumeRenderer"] {
-    transform: none !important;
-    box-shadow: none !important;
-    margin: 0 !important;
-    width: 210mm !important;
-    min-height: 297mm !important;
-  }
-
-  /* 分页设置（打在原语 class 上） */
-  .rx-section,
-  .rx-item {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  /* 防止标题孤立 */
-  h1, h2, h3, h4, h5, h6 {
-    break-after: avoid;
-    page-break-after: avoid;
-  }
-
-  /* 去除链接下划线和颜色 */
-  a {
-    text-decoration: none !important;
-    color: inherit !important;
-  }
-
-  /* 保证颜色打印 */
-  * {
+    background: #fff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* 页面边距：0（内容由模板原语 --rx-page-padding 控制） */
   @page {
     size: A4;
     margin: 0;
   }
 
-  /* 隐藏滚动条 */
+  /* 分页保护只作用在**单条目**上。
+     曾经打在 .rx-section（整个模块）上，导致一段含 3 条经历的「工作经历」
+     被整块推到第 2 页，第 1 页留大片空白。 */
+  .rx-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 模块标题不要孤悬在页尾 */
+  .rx-section-title,
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .rx-section {
+    break-inside: auto;
+  }
+
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   ::-webkit-scrollbar {
     display: none;
   }
-}
-
-/* 打印预览模式 */
-body.print-mode {
-  overflow: hidden;
-}
-
-body.print-mode .print-preview-overlay {
-  display: flex;
-}
-
-/* 打印模式下只显示简历 */
-body.print-mode > *:not(.print-preview-overlay):not(script) {
-  display: none !important;
 }

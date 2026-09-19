@@ -1,287 +1,323 @@
 import React, { useRef, useState, useEffect, useMemo, memo } from 'react';
 import { useResumeStore, TEMPLATE_THEME } from '@/app/store/useResumeStore';
 import { TemplateId, ResumeData } from '@/app/types/resume';
-import { X, Check, FileText, Briefcase, Landmark, Code, GraduationCap, Columns2, Globe2, Layers, ArrowLeft, PanelLeft, PanelRight, Frame, Leaf, Sparkles } from 'lucide-react';
+import { themes, resolveSidebarWidth } from '@/app/types/theme';
+import { emptyResumeData } from '@/app/data/initialData';
+import { X, Check, Columns2, Sparkles, Frame, Layers, Globe2, Landmark, LayoutTemplate, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/app/lib/utils';
 import { ResumeRenderer } from '@/app/components/templates/ResumeRenderer';
 
 /**
- * 模板选择器：8 张卡（02 §5.2），缩略图用 ScaledPreview 静态预览（低开销），
- * 大预览懒加载当前 hover 的那一套。选择模板时同时写入默认主题（§5.4）。
+ * 模板选择器：7 张卡（14 套合并后），无「更多」折叠。
+ * - 卡片缩略图 = 结构示意 + 该模板默认主题的真实配色（0.34 缩放的真实排版在卡片里读不出差别，
+ *   所以缩略图不渲染纸面，只画版式骨架）
+ * - 点开卡片 = 用**当前简历的真实数据**渲染该模板（禁止王小明/某某科技之类的演示数据）
+ * 选择模板时同时写入默认主题（§5.4）。
  */
 
-// 8 套模板元数据
-const templates: {
+/** 结构示意配置：每套模板的版式骨架 */
+type Schematic = {
+  header: 'left' | 'center' | 'banner';
+  sidebar?: { side: 'left' | 'right'; width: number; dark: boolean };
+  photo?: boolean;
+  frame?: 'line' | 'band';
+  title: 'line' | 'bar' | 'plain' | 'bg';
+  /** 栏目名文案（enSimple 用英文；仅为版式说明，不是个人数据） */
+  titles: [string, string, string];
+  /** 头部第二行：公文式字段行 */
+  formal?: boolean;
+};
+
+type TemplateMeta = {
   id: TemplateId;
   name: string;
   nameZh: string;
   description: string;
   icon: React.ReactNode;
-  color: string;
   tags: string[];
-}[] = [
+  schematic: Schematic;
+};
+
+const templates: TemplateMeta[] = [
   {
-    id: 'campusClean',
-    name: 'Campus Clean',
-    nameZh: '校招通用',
-    description: '单栏、教育在前、可选右上证件照；应届/实习首选',
-    icon: <GraduationCap size={24} />,
-    color: '#2B6CB0',
-    tags: ['校招', '通用'],
+    id: 'classic',
+    name: 'Classic',
+    nameZh: '简洁通用',
+    description: '单栏通用版式；栏目头（下划线/色条/纯加粗）、地点、姓名字号均可调。校招与社招都合适',
+    icon: <LayoutTemplate size={22} />,
+    tags: ['校招', '社招', '通用'],
+    schematic: { header: 'left', photo: true, title: 'line', titles: ['教育背景', '工作经历', '项目经历'] },
   },
   {
-    id: 'jobClean',
-    name: 'Job Clean',
-    nameZh: '社招通用',
-    description: '单栏、工作在前、可选照片；互联网社招首选',
-    icon: <Briefcase size={24} />,
-    color: '#1E4E8C',
-    tags: ['社招', '通用'],
+    id: 'sidebar',
+    name: 'Sidebar',
+    nameZh: '侧栏双栏',
+    description: '侧栏可左可右、宽度 25/30/35/50%、底色可主题色实底；信息多也能排进一页',
+    icon: <Columns2 size={22} />,
+    tags: ['双栏', '紧凑'],
+    schematic: { header: 'center', photo: true, sidebar: { side: 'left', width: 30, dark: false }, title: 'bar', titles: ['工作经历', '项目经历', '教育背景'] },
   },
   {
-    id: 'navyBiz',
-    name: 'Navy Biz',
-    nameZh: '商务深蓝',
-    description: '深蓝标题线、可切换宋体；金融/商务/国企',
-    icon: <FileText size={24} />,
-    color: '#1E4E8C',
-    tags: ['商务', '金融'],
+    id: 'banner',
+    name: 'Banner',
+    nameZh: '顶部横幅',
+    description: '顶部主题色横幅（姓名/意向居中），下方单栏；校招辨识度高',
+    icon: <Sparkles size={22} />,
+    tags: ['校招', '横幅'],
+    schematic: { header: 'banner', title: 'line', titles: ['教育背景', '实习经历', '校园经历'] },
   },
   {
-    id: 'civilFile',
-    name: 'Civil File',
-    nameZh: '体制公文',
-    description: '矩形证件照、可显示政治面貌/籍贯；公务员/事业单位',
-    icon: <Landmark size={24} />,
-    color: '#1A1A1A',
-    tags: ['公务员', '体制内'],
-  },
-  {
-    id: 'techPlain',
-    name: 'Tech Plain',
-    nameZh: '技术简洁',
-    description: '单栏、技能分组、项目技术栈一行 tag；研发岗',
-    icon: <Code size={24} />,
-    color: '#4A5568',
-    tags: ['技术', '研发'],
+    id: 'frame',
+    name: 'Frame',
+    nameZh: '线框档案',
+    description: '居中姓名 + 整页细线框，或改为栏目浅底色块；端庄档案风',
+    icon: <Frame size={22} />,
+    tags: ['档案', '端庄'],
+    schematic: { header: 'center', photo: true, frame: 'line', title: 'plain', titles: ['教育背景', '工作经历', '技能特长'] },
   },
   {
     id: 'atsMono',
     name: 'ATS Mono',
     nameZh: '极简黑白',
-    description: '单栏纯黑、无图标、ATS/网申解析最友好',
-    icon: <Layers size={24} />,
-    color: '#1A1A1A',
+    description: '无照片、无装饰、纯文本层级；网申与 ATS 解析最友好',
+    icon: <Layers size={22} />,
     tags: ['极简', '网申'],
-  },
-  {
-    id: 'compactSplit',
-    name: 'Compact Split',
-    nameZh: '双栏紧凑',
-    description: '左栏浅底（≤28%）、右主经历；信息多但想一页时用',
-    icon: <Columns2 size={24} />,
-    color: '#1E4E8C',
-    tags: ['进阶', '双栏'],
+    schematic: { header: 'left', photo: false, title: 'plain', titles: ['教育背景', '工作经历', '技能特长'] },
   },
   {
     id: 'enSimple',
     name: 'EN Simple',
     nameZh: '英文简洁',
-    description: '英文栏目标题、单栏；外企/留学',
-    icon: <Globe2 size={24} />,
-    color: '#1A1A1A',
+    description: '英文栏目名（Education / Experience…）、单栏；外企与留学申请',
+    icon: <Globe2 size={22} />,
     tags: ['英文', '外企'],
+    schematic: { header: 'left', photo: true, title: 'line', titles: ['Education', 'Experience', 'Projects'] },
   },
   {
-    id: 'bannerCampus',
-    name: 'Banner Campus',
-    nameZh: '顶部横幅校招',
-    description: '顶部主题色横幅 + 教育在前；校招辨识度高',
-    icon: <Sparkles size={24} />,
-    color: '#2B6CB0',
-    tags: ['校招', '横幅'],
-  },
-  {
-    id: 'navySidebar',
-    name: 'Navy Sidebar',
-    nameZh: '深蓝侧栏商务',
-    description: '左 20% 深蓝侧栏（联系方式/技能白字）+ 右主经历；金融/商务',
-    icon: <PanelLeft size={24} />,
-    color: '#1E3A5F',
-    tags: ['商务', '侧栏'],
-  },
-  {
-    id: 'lineFrame',
-    name: 'Line Frame',
-    nameZh: '细线框档案',
-    description: '四周细线框 + 姓名居中；公务员/事业单位端庄版',
-    icon: <Frame size={24} />,
-    color: '#1A1A1A',
-    tags: ['体制内', '档案'],
-  },
-  {
-    id: 'greenFresh',
-    name: 'Green Fresh',
-    nameZh: '浅底标题清新',
-    description: '栏目标题浅底色块；教育/环保/医疗清新风',
-    icon: <Leaf size={24} />,
-    color: '#2F6F4E',
-    tags: ['清新', '教育'],
-  },
-  {
-    id: 'sidebarRight',
-    name: 'Sidebar Right',
-    nameZh: '右栏侧栏',
-    description: '主经历在左 70% + 右 30% 浅底侧栏；阅读顺序友好',
-    icon: <PanelRight size={24} />,
-    color: '#2B6CB0',
-    tags: ['双栏', '侧栏'],
-  },
-  {
-    id: 'twoColumnEqual',
-    name: 'Two Column Equal',
-    nameZh: '等宽双列',
-    description: '正文 50/50 两列并行；信息多但想一页',
-    icon: <Columns2 size={24} />,
-    color: '#4A5568',
-    tags: ['双栏', '紧凑'],
+    id: 'civilFile',
+    name: 'Civil File',
+    nameZh: '体制公文',
+    description: '默认宋体、居中抬头带政治面貌/籍贯、色条栏目头；公务员与事业单位',
+    icon: <Landmark size={22} />,
+    tags: ['体制内', '公文'],
+    schematic: { header: 'center', photo: true, title: 'bar', formal: true, titles: ['教育背景', '工作经历', '技能特长'] },
   },
 ];
 
-// 默认展示的模板（主列表干净）+「更多」进阶模板（双栏/侧栏类）
-const MORE_ID_SET = new Set<string>(['compactSplit', 'navySidebar', 'sidebarRight', 'twoColumnEqual']);
-const DEFAULT_TEMPLATES = templates.filter(t => !MORE_ID_SET.has(t.id));
-const MORE_TEMPLATES = templates.filter(t => MORE_ID_SET.has(t.id));
-
-// 静态预览数据（示例数据 + 占位中文「姓名」「意向」，避免空纸与李明）
-function makePreviewData(templateId: TemplateId): ResumeData {
+/** 该模板卡片的真实配色（来自主题表，不写死 hex） */
+function schematicColors(id: TemplateId) {
+  const theme = themes[TEMPLATE_THEME[id] ?? 'ink'];
   return {
-    id: `preview-${templateId}`,
-    title: '示例简历',
-    lastModified: Date.now(),
-    template: templateId,
-    profile: {
-      name: '王小明',
-      title: '前端开发工程师',
-      email: 'wangxm@example.com',
-      phone: '138 0000 1234',
-      location: '北京',
-      wechat: 'wangxm_dev',
-      summary: '5 年 Web 开发经验，熟悉 React/TypeScript 与工程化。',
-      avatar: '',
-      customFields: [],
-    },
-    settings: {
-      themeColor: TEMPLATE_THEME[templateId] ?? 'ink',
-      fontFamily: 'sans',
-      fontSizeScale: 1,
-      lineHeight: 'standard',
-      pageMargin: 'standard',
-      language: 'zh',
-    },
-    modules: [
-      { id: 'edu-1', type: 'education', title: '教育背景', visible: true, items: [
-        { id: 'e1', title: '软件工程 / 本科', subtitle: '华北理工大学', date: '2016.09 - 2020.06', description: '主修：数据结构、操作系统。' } ] },
-      { id: 'exp-1', type: 'experience', title: '工作经历', visible: true, items: [
-        { id: 'x1', title: '前端工程师', subtitle: '某某科技', date: '2021.03 - 至今', description: '• 负责核心产品 Web 端开发。' } ] },
-      { id: 'proj-1', type: 'projects', title: '项目经历', visible: true, items: [
-        { id: 'p1', title: '可视化搭建平台', subtitle: '个人项目', date: '2022.01 - 2023.06', description: '• 基于 React + dnd-kit 实现拖拽编辑器。' } ] },
-      { id: 'skills-1', type: 'skills', title: '专业技能', visible: true, items: [
-        { id: 's1', name: 'React / Vue' }, { id: 's2', name: 'TypeScript' }, { id: 's3', name: 'Node.js' } ] },
-    ],
+    primary: theme.colors.primary,
+    secondary: theme.colors.secondary,
+    accent: theme.colors.accent,
   };
 }
 
-// 自适应缩放预览组件（缩略图 + 大预览通用，低成本）
-const ScaledPreview: React.FC<{ templateId: TemplateId; lazy?: boolean }> = memo(({ templateId, lazy = true }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.25);
-  const [isVisible, setIsVisible] = useState(!lazy);
+const Bar: React.FC<{ w: string; h?: number; color?: string; mt?: number; bold?: boolean }> = ({
+  w, h = 4, color = '#DDE1E6', mt = 0, bold,
+}) => (
+  <div style={{ width: w, height: `${h}%`, minHeight: 2, backgroundColor: color, borderRadius: 1, marginTop: mt, opacity: bold ? 1 : 0.9 }} />
+);
 
-  useEffect(() => {
-    if (!lazy) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } },
-      { rootMargin: '200px' }
+/** 栏目头示意（与 SectionTitle 的四种 variant 一一对应） */
+const TitleMark: React.FC<{ title: string; variant: Schematic['title']; primary: string }> = ({ title, variant, primary }) => {
+  const label = (
+    <span style={{ fontSize: '7px', fontWeight: 700, color: '#2B2F36', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{title}</span>
+  );
+  if (variant === 'bar') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 3 }}>
+        <span style={{ width: 2, height: 8, backgroundColor: primary, borderRadius: 1 }} />
+        {label}
+      </div>
     );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [lazy]);
-
-  useEffect(() => {
-    if (!isVisible) return;
-    const updateScale = () => {
-      if (containerRef.current) {
-        setScale(containerRef.current.offsetWidth / 793);
-      }
-    };
-    updateScale();
-    let timer: ReturnType<typeof setTimeout>;
-    const debouncedUpdate = () => {
-      clearTimeout(timer);
-      timer = setTimeout(updateScale, 150);
-    };
-    window.addEventListener('resize', debouncedUpdate);
-    return () => {
-      window.removeEventListener('resize', debouncedUpdate);
-      clearTimeout(timer);
-    };
-  }, [isVisible]);
-
-  const previewData = useMemo(() => makePreviewData(templateId), [templateId]);
-
+  }
+  if (variant === 'plain') return <div style={{ marginBottom: 3 }}>{label}</div>;
+  if (variant === 'bg') {
+    return (
+      <div style={{ marginBottom: 3 }}>
+        <span style={{ fontSize: '7px', fontWeight: 700, color: '#2B2F36', backgroundColor: `color-mix(in srgb, ${primary} 14%, white)`, padding: '1px 3px', borderRadius: 2 }}>{title}</span>
+      </div>
+    );
+  }
   return (
-    <div ref={containerRef} className="w-full aspect-[210/297] relative overflow-hidden bg-gray-50 rounded-lg">
-      {isVisible ? (
-        <div
-          className="absolute top-0 left-0 pointer-events-none"
-          style={{
-            width: '210mm',
-            minHeight: '297mm',
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left',
-          }}
-        >
-          <ResumeRenderer data={previewData} scale={1} />
+    <div style={{ marginBottom: 3, borderBottom: `1px solid color-mix(in srgb, ${primary} 45%, transparent)`, paddingBottom: 1 }}>
+      {label}
+    </div>
+  );
+};
+
+/** 一组正文占位条（不含任何个人数据） */
+const BodyLines: React.FC<{ widths: string[] }> = ({ widths }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    {widths.map((w, i) => <Bar key={i} w={w} h={3} mt={0} />)}
+  </div>
+);
+
+/**
+ * 卡片缩略图：结构示意 + 真实配色。
+ * 不用真实排版缩放（scale≈0.34 时 10.5pt 正文只有 3.6px，肉眼只剩色块）。
+ */
+const TemplateSchematic: React.FC<{ meta: TemplateMeta }> = memo(({ meta }) => {
+  const s = meta.schematic;
+  const { primary, secondary } = schematicColors(meta.id);
+  const sidebar = s.sidebar;
+
+  const headerBlock = (
+    <div style={{ marginBottom: 6 }}>
+      {s.header === 'banner' ? (
+        <div style={{ backgroundColor: primary, margin: '-6px -6px 6px', padding: '7px 6px', textAlign: 'center' }}>
+          <div style={{ fontSize: '9px', fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{s.photo ? '姓名' : '姓名'}</div>
+          <div style={{ marginTop: 3, display: 'flex', justifyContent: 'center', gap: 3 }}>
+            <span style={{ width: '22%', height: 3, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1 }} />
+            <span style={{ width: '28%', height: 3, backgroundColor: 'rgba(255,255,255,0.45)', borderRadius: 1 }} />
+          </div>
         </div>
       ) : (
-        <div className="w-full h-full animate-pulse bg-gray-200/50" />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: s.header === 'center' ? 'center' : 'space-between', gap: 4 }}>
+          <div style={{ textAlign: s.header === 'center' ? 'center' : 'left', flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '9px', fontWeight: 700, color: '#1B1F24', lineHeight: 1.2 }}>{s.header === 'center' ? '姓名' : '姓名'}</div>
+            <div style={{ marginTop: 2, display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: s.header === 'center' ? 'center' : 'flex-start' }}>
+              <span style={{ width: 22, height: 3, backgroundColor: '#DDE1E6', borderRadius: 1 }} />
+              <span style={{ width: 28, height: 3, backgroundColor: '#DDE1E6', borderRadius: 1 }} />
+            </div>
+            {s.formal && (
+              <div style={{ marginTop: 2, display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: s.header === 'center' ? 'center' : 'flex-start' }}>
+                <span style={{ width: 18, height: 3, backgroundColor: secondary, borderRadius: 1 }} />
+                <span style={{ width: 24, height: 3, backgroundColor: secondary, borderRadius: 1 }} />
+              </div>
+            )}
+          </div>
+          {s.photo && <span style={{ width: 11, height: 15, backgroundColor: '#C9CFD7', borderRadius: 1, flexShrink: 0 }} />}
+        </div>
+      )}
+    </div>
+  );
+
+  const sections = (
+    <>
+      <TitleMark title={s.titles[0]} variant={s.title} primary={primary} />
+      <BodyLines widths={['92%', '78%']} />
+      <div style={{ height: 5 }} />
+      <TitleMark title={s.titles[1]} variant={s.title} primary={primary} />
+      <BodyLines widths={['96%', '84%', '60%']} />
+      <div style={{ height: 5 }} />
+      <TitleMark title={s.titles[2]} variant={s.title} primary={primary} />
+      <BodyLines widths={['80%', '52%']} />
+    </>
+  );
+
+  const page = (
+    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', background: '#fff' }}>
+      {sidebar && (
+        <div
+          style={{
+            width: `${sidebar.width}%`,
+            order: sidebar.side === 'left' ? 1 : 2,
+            backgroundColor: sidebar.dark ? primary : '#F5F6F8',
+            padding: '6px 5px',
+            borderRight: sidebar.side === 'left' ? '1px solid #E6E8EB' : undefined,
+            borderLeft: sidebar.side === 'right' ? '1px solid #E6E8EB' : undefined,
+            boxSizing: 'border-box',
+          }}
+        >
+          <span style={{ display: 'block', width: 14, height: 19, backgroundColor: sidebar.dark ? 'rgba(255,255,255,0.45)' : '#C9CFD7', borderRadius: 1, margin: '0 auto 4px' }} />
+          <div style={{ textAlign: 'center', fontSize: '8px', fontWeight: 700, color: sidebar.dark ? '#fff' : '#1B1F24', lineHeight: 1.2 }}>姓名</div>
+          <div style={{ marginTop: 6 }}>
+            <TitleMark title="联系方式" variant="bar" primary={sidebar.dark ? '#FFFFFF' : primary} />
+            <BodyLines widths={['86%', '70%']} />
+            <div style={{ height: 5 }} />
+            <TitleMark title="技能" variant="bar" primary={sidebar.dark ? '#FFFFFF' : primary} />
+            <BodyLines widths={['92%', '66%']} />
+          </div>
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0, order: sidebar ? (sidebar.side === 'left' ? 2 : 1) : 1, padding: '6px' }}>
+        {headerBlock}
+        {sections}
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      className="w-full aspect-[210/297] rounded-md overflow-hidden bg-white border border-gray-200 shadow-inner"
+      style={s.frame === 'line' ? { padding: 4 } : undefined}
+    >
+      {s.frame === 'line' ? (
+        <div style={{ width: '100%', height: '100%', border: `1.5px solid ${primary}`, overflow: 'hidden' }}>{page}</div>
+      ) : s.frame === 'band' ? (
+        <div style={{ width: '100%', height: '100%', background: `color-mix(in srgb, ${primary} 8%, white)` }}>{page}</div>
+      ) : (
+        page
       )}
     </div>
   );
 });
-ScaledPreview.displayName = 'ScaledPreview';
+TemplateSchematic.displayName = 'TemplateSchematic';
 
-// 缩略图卡片（不是按钮——外层 TemplateCard 已是 button，避免嵌套）
-const TemplatePreviewThumbnail: React.FC<{ templateId: TemplateId }> = memo(({ templateId }) => {
+/**
+ * 真实预览：把当前简历的数据套到目标模板上渲染（无任何演示数据）。
+ * 简历为空时纸面也是空白（空模块不渲染标题）—— 与用户实际新建后的效果一致。
+ */
+const RealPreview: React.FC<{ templateId: TemplateId }> = memo(({ templateId }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeResume = useResumeStore(state => state.resumes[state.activeResumeId]);
+  const [scale, setScale] = useState(0.55);
+
+  const previewData: ResumeData = useMemo(() => {
+    const base = activeResume ? activeResume : emptyResumeData();
+    return {
+      ...base,
+      id: `preview-${templateId}`,
+      template: templateId,
+      settings: { ...base.settings, themeColor: TEMPLATE_THEME[templateId] ?? base.settings.themeColor },
+    };
+  }, [activeResume, templateId]);
+
+  useEffect(() => {
+    const update = () => {
+      if (containerRef.current) setScale(containerRef.current.offsetWidth / 794);
+    };
+    update();
+    let timer: ReturnType<typeof setTimeout>;
+    const debounced = () => { clearTimeout(timer); timer = setTimeout(update, 120); };
+    window.addEventListener('resize', debounced);
+    return () => { window.removeEventListener('resize', debounced); clearTimeout(timer); };
+  }, []);
+
   return (
-    <div className="mb-4 relative rounded-lg overflow-hidden shadow-sm border border-gray-100 w-full text-left">
-      <ScaledPreview templateId={templateId} lazy={true} />
+    <div ref={containerRef} className="w-full aspect-[210/297] relative overflow-hidden bg-gray-100 rounded-lg shadow-inner">
+      <div
+        className="absolute top-0 left-0 pointer-events-none"
+        style={{ width: '210mm', minHeight: '297mm', transform: `scale(${scale})`, transformOrigin: 'top left' }}
+      >
+        <ResumeRenderer data={previewData} scale={1} />
+      </div>
+      {!activeResume && (
+        <div className="absolute bottom-1 left-1 right-1 text-[10px] text-gray-500 text-center">
+          当前没有可预览的简历，显示空白纸面
+        </div>
+      )}
     </div>
   );
 });
-TemplatePreviewThumbnail.displayName = 'TemplatePreviewThumbnail';
+RealPreview.displayName = 'RealPreview';
 
 interface TemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// 模板卡组件
-const TemplateCard: React.FC<{
-  t: typeof templates[number];
-  current: boolean;
-  onPreview: () => void;
-}> = memo(({ t, current, onPreview }) => (
+const TemplateCard: React.FC<{ t: TemplateMeta; current: boolean; onPreview: () => void }> = memo(({ t, current, onPreview }) => (
   <button
     type="button"
     onClick={onPreview}
     className={cn(
-      "group relative p-4 rounded-xl border-2 transition-all text-left hover:shadow-lg",
-      current ? "border-blue-500 bg-blue-50 shadow-md" : "border-gray-200 hover:border-gray-300 bg-white"
+      'group relative p-4 rounded-xl border-2 transition-all text-left hover:shadow-lg',
+      current ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-gray-300 bg-white'
     )}
   >
     {current && (
@@ -289,24 +325,22 @@ const TemplateCard: React.FC<{
         <Check size={14} />
       </div>
     )}
-    <TemplatePreviewThumbnail templateId={t.id} />
-    <div className="flex items-start justify-between">
+    <TemplateSchematic meta={t} />
+    <div className="flex items-start justify-between mt-3">
       <div className="min-w-0 flex-1">
         <h3 className="font-bold text-gray-900">{t.nameZh}</h3>
-        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{t.description}</p>
+        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{t.description}</p>
       </div>
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ml-2"
-        style={{ backgroundColor: t.color }}
+        style={{ backgroundColor: schematicColors(t.id).primary }}
       >
         {t.icon}
       </div>
     </div>
-    <div className="flex gap-1 mt-2">
+    <div className="flex gap-1 mt-2 flex-wrap">
       {t.tags.map((tag) => (
-        <span key={tag} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-          {tag}
-        </span>
+        <span key={tag} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{tag}</span>
       ))}
     </div>
   </button>
@@ -315,19 +349,25 @@ TemplateCard.displayName = 'TemplateCard';
 
 export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose }) => {
   const currentTemplate = useResumeStore(state => state.resumes[state.activeResumeId]?.template);
+  const currentSidebarWidth = useResumeStore(state => state.resumes[state.activeResumeId]?.settings);
   const setTemplate = useResumeStore(state => state.setTemplate);
-  const [showMore, setShowMore] = useState(false);
   const [previewTarget, setPreviewTarget] = useState<TemplateId | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
-      setPreviewTarget(null);
-      setShowMore(false);
-    }
+    if (!isOpen) setPreviewTarget(null);
   }, [isOpen]);
 
   const previewInfo = previewTarget ? templates.find(t => t.id === previewTarget) : null;
   const isCurrentTemplate = previewTarget === currentTemplate;
+
+  // 侧栏模板的真实宽度（用户在样式面板调过就直接体现）
+  const sidebarWidth = currentSidebarWidth ? resolveSidebarWidth(currentSidebarWidth) : 30;
+  const displayTemplates = useMemo(
+    () => templates.map(t => (t.id === 'sidebar' && t.schematic.sidebar
+      ? { ...t, schematic: { ...t.schematic, sidebar: { ...t.schematic.sidebar, width: sidebarWidth } } }
+      : t)),
+    [sidebarWidth]
+  );
 
   // 选择模板：setTemplate 内部会同时写默认主题（02 §5.4）
   const handleConfirmSwitch = () => {
@@ -353,16 +393,13 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 bg-white rounded-2xl shadow-2xl z-50 md:w-[900px] md:max-h-[85vh] overflow-hidden flex flex-col"
+            className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 bg-white rounded-2xl shadow-2xl z-50 md:w-[940px] md:max-h-[88vh] overflow-hidden flex flex-col"
           >
-            {/* ========== 预览模式 ========== */}
+            {/* ========== 预览模式（真实数据） ========== */}
             {previewTarget && previewInfo ? (
               <>
                 <div className="p-4 border-b border-gray-100 flex items-center gap-3">
-                  <button
-                    onClick={() => setPreviewTarget(null)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  >
+                  <button onClick={() => setPreviewTarget(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                     <ArrowLeft size={20} className="text-gray-600" />
                   </button>
                   <div className="flex-1 min-w-0">
@@ -376,8 +413,11 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
 
                 <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
                   <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-gray-50">
-                    <div className="w-full max-w-[420px]">
-                      <ScaledPreview templateId={previewTarget} lazy={false} />
+                    <div className="w-full max-w-[520px]">
+                      <RealPreview templateId={previewTarget} />
+                      <p className="text-[11px] text-gray-400 mt-2 text-center">
+                        以上为你当前简历的真实内容（未填写处保持空白）
+                      </p>
                     </div>
                   </div>
 
@@ -385,7 +425,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0"
-                        style={{ backgroundColor: previewInfo.color }}
+                        style={{ backgroundColor: schematicColors(previewInfo.id).primary }}
                       >
                         {previewInfo.icon}
                       </div>
@@ -397,9 +437,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                     <p className="text-sm text-gray-600 leading-relaxed">{previewInfo.description}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {previewInfo.tags.map((tag) => (
-                        <span key={tag} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
-                          {tag}
-                        </span>
+                        <span key={tag} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">{tag}</span>
                       ))}
                     </div>
                     {isCurrentTemplate && (
@@ -424,20 +462,18 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                         返回模板列表
                       </button>
                     </div>
-                    <p className="text-[11px] text-gray-400 text-center">
-                      切换模板会自动配合同色主题，已填内容不丢失
-                    </p>
+                    <p className="text-[11px] text-gray-400 text-center">切换模板会自动配合同色主题，已填内容不丢失</p>
                   </div>
                 </div>
               </>
             ) : (
-              /* ========== 列表模式 ========== */
+              /* ========== 列表模式：7 张卡，无折叠 ========== */
               <>
-                <div className="p-5 border-b border-gray-100 space-y-3">
+                <div className="p-5 border-b border-gray-100">
                   <div className="flex justify-between items-center">
                     <div>
                       <h2 className="text-xl font-bold text-gray-900">切换模板</h2>
-                      <p className="text-sm text-gray-500 mt-0.5">点击模板卡片可预览效果</p>
+                      <p className="text-sm text-gray-500 mt-0.5">卡片是版式示意，点击后用你的真实内容预览</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                       <X size={20} className="text-gray-500" />
@@ -447,7 +483,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
 
                 <div className="flex-1 overflow-y-auto p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(showMore ? MORE_TEMPLATES : DEFAULT_TEMPLATES).map((template) => (
+                    {displayTemplates.map((template) => (
                       <TemplateCard
                         key={template.id}
                         t={template}
@@ -456,15 +492,6 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose })
                       />
                     ))}
                   </div>
-
-                  {/* 更多（进阶模板：双栏/侧栏类） */}
-                  <button
-                    type="button"
-                    onClick={() => setShowMore(!showMore)}
-                    className="mt-4 w-full py-2.5 rounded-lg border border-dashed border-gray-300 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
-                  >
-                    {showMore ? '← 返回常规模板' : '更多模板（双栏 / 侧栏 / 进阶）'}
-                  </button>
                 </div>
 
                 <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-500">

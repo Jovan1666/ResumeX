@@ -17,6 +17,14 @@ describe('电话校验（去空格 +86）', () => {
     expect(isValidPhone('')).toBe(false);
   });
 
+  it('字段叫「电话」，座机与港澳台/国际号必须能填', () => {
+    expect(isValidPhone('010-12345678')).toBe(true);   // 北京座机
+    expect(isValidPhone('0755-2661 2345')).toBe(true); // 深圳座机带空格
+    expect(isValidPhone('+852-9876 5432')).toBe(true); // 香港
+    expect(isValidPhone('+1 (415) 555-2671')).toBe(true); // 美国
+    expect(isValidPhone('85298765432')).toBe(false);   // 不带 + 无法判定国际，仍拒绝
+  });
+
   it('validateField phone 规则不吼用户（用清洗后的值）', () => {
     const err = validateField('138 0000 0000', { phone: true }, '电话');
     expect(err).toBeNull();

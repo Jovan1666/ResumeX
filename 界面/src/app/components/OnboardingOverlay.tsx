@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ArrowRight, User, FileText, Download } from 'lucide-react';
 
 interface OnboardingProps {
+  /** 引导结束（含跳过 / 关闭）：调用方负责持久化「已完成」，否则每次进编辑器都会重放 */
   onComplete: () => void;
 }
 
@@ -14,9 +15,6 @@ const steps = [
 
 export const OnboardingOverlay: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [dismissed, setDismissed] = useState(false);
-
-  if (dismissed) return null;
 
   const step = steps[currentStep];
   const isLast = currentStep === steps.length - 1;
@@ -39,7 +37,7 @@ export const OnboardingOverlay: React.FC<OnboardingProps> = ({ onComplete }) => 
             <div className="w-7 h-7 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">{step.icon}</div>
             <h3 className="font-semibold text-gray-900 text-sm">{step.title}</h3>
           </div>
-          <button onClick={() => setDismissed(true)} className="text-gray-300 hover:text-gray-500">
+          <button onClick={onComplete} className="text-gray-300 hover:text-gray-500" aria-label="关闭引导">
             <X size={14} />
           </button>
         </div>
@@ -48,11 +46,9 @@ export const OnboardingOverlay: React.FC<OnboardingProps> = ({ onComplete }) => 
         <div className="flex justify-between items-center mt-3">
           <span className="text-[10px] text-gray-300">{currentStep + 1} / {steps.length}</span>
           <div className="flex gap-2">
-            {currentStep === 0 && (
-              <button onClick={() => setDismissed(true)} className="text-[11px] text-gray-400 hover:text-gray-600">
-                跳过
-              </button>
-            )}
+            <button onClick={onComplete} className="text-[11px] text-gray-400 hover:text-gray-600">
+              跳过
+            </button>
             <button
               onClick={() => { if (isLast) onComplete(); else setCurrentStep(currentStep + 1); }}
               className="text-[11px] flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md font-medium transition-colors"

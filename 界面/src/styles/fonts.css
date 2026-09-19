@@ -60,18 +60,24 @@ body {
   font-family: var(--font-heiti);
 }
 
-/* --- 行间距映射（作用于模板根，不再简单>div） --- */
+/* --- 行间距映射（作用于模板根，不再简单>div）---
+   同时暴露 --rx-lh：原语内部需要局部行距时乘用这个变量，
+   禁止再写死 lineHeight 字面量，否则「行间距」设置对纸面无效 */
 .resume-page[data-line-height="compact"] {
-  line-height: 1.35;
+  --rx-lh: 1.35;
+  line-height: var(--rx-lh);
 }
 .resume-page[data-line-height="standard"] {
-  line-height: 1.5;
+  --rx-lh: 1.5;
+  line-height: var(--rx-lh);
 }
 .resume-page[data-line-height="relaxed"] {
-  line-height: 1.75;
+  --rx-lh: 1.75;
+  line-height: var(--rx-lh);
 }
 .resume-page[data-line-height="custom"] {
-  line-height: var(--custom-line-height, 1.5);
+  --rx-lh: var(--custom-line-height, 1.5);
+  line-height: var(--rx-lh);
 }
 
 /* --- 页边距：模板自己控制，这里只提供变量（不再给模板垫 padding） --- */

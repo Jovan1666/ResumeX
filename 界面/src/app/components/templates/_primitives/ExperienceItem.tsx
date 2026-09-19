@@ -1,9 +1,13 @@
 import React from 'react';
 import { ResumeItem } from '@/app/types/resume';
+import { fs } from './ResumeChrome';
 
 /**
  * 单条经历：标题（加粗）+ 机构（灰）+ 日期（右对齐）+ 描述（按行 split）。
  * 项目符号样式可切换（dot 圆点 / dash 短横线 / none 无）。
+ *
+ * 字号一律走 fs()，行距一律继承 --rx-lh：
+ * 之前这里写死 pt 与 lineHeight 字面量，导致「字号」「行间距」两个设置完全无效。
  */
 export const ExperienceItem: React.FC<{
   item: ResumeItem;
@@ -19,28 +23,28 @@ export const ExperienceItem: React.FC<{
     <div className="rx-item mb-2.5 last:mb-0">
       <div className="flex justify-between items-baseline gap-2">
         <div className="flex items-baseline gap-2 flex-wrap min-w-0">
-          <h4 className="font-bold" style={{ fontSize: compact ? '10pt' : '10.5pt', color: '#111' }}>
+          <h4 className="font-bold min-w-0 break-words" style={{ fontSize: fs(compact ? 10 : 10.5), color: '#111' }}>
             {item.title}
           </h4>
           {item.subtitle && (
-            <span style={{ fontSize: '9.5pt', color: '#555' }}>{item.subtitle}</span>
+            <span className="min-w-0 break-words" style={{ fontSize: fs(9.5), color: '#555' }}>{item.subtitle}</span>
           )}
           {showLocation && item.location && (
-            <span style={{ fontSize: '9pt', color: '#666' }}>{item.location}</span>
+            <span style={{ fontSize: fs(9), color: '#666' }}>{item.location}</span>
           )}
         </div>
         {item.date && (
-          <span className="whitespace-nowrap flex-shrink-0" style={{ fontSize: '9.5pt', color: '#444' }}>
+          <span className="whitespace-nowrap flex-shrink-0" style={{ fontSize: fs(9.5), color: '#444' }}>
             {item.date}
           </span>
         )}
       </div>
       {descriptionLines.length > 0 && (
-        <div className="mt-0.5" style={{ fontSize: '10pt', color: '#333', lineHeight: 1.3 }}>
+        <div className="mt-0.5" style={{ fontSize: fs(10), color: '#333' }}>
           {descriptionLines.map((line, i) => {
             const hasBullet = /^[•·\-–—*]/.test(line);
             return (
-              <p key={i} className="leading-snug">
+              <p key={i}>
                 {bulletStyle === 'none' ? line : hasBullet ? line : `${bullet} ${line}`}
               </p>
             );
@@ -59,7 +63,11 @@ export const SkillGroups: React.FC<{
   compact?: boolean;
   /** 两列显示（教育/技能常用） */
   columns?: 1 | 2;
-}> = ({ items, separator = '、', compact = false, columns = 1 }) => {
+  /** 正文色（深色侧栏上需要浅色字） */
+  color?: string;
+  /** 组名色 */
+  labelColor?: string;
+}> = ({ items, separator = '、', compact = false, columns = 1, color = '#222', labelColor }) => {
   // 按 group 分组；无 group 的都归入「技能」
   const groups = new Map<string, { id: string; name: string }[]>();
   const add = (g: string, item: { id: string; name: string }) => {
@@ -69,18 +77,12 @@ export const SkillGroups: React.FC<{
   };
   items.forEach((it) => add(it.group || '技能', it));
 
-  const style = { fontSize: compact ? '9.5pt' : '10pt', color: '#222', lineHeight: 1.4 };
+  const style = { fontSize: fs(compact ? 9.5 : 10), color };
+  const labelStyle = { fontSize: fs(10), color: labelColor || color };
   const groupsList = Array.from(groups.entries());
 
   // 两列：按「组 → 组」并排（不足两组则单列）
   if (columns === 2) {
-    const rows: [string, { id: string; name: string }[]][] = [];
-    for (let i = 0; i < groupsList.length; i += 2) {
-      rows.push([groupsList[i][0], groupsList[i][1]]);
-      if (groupsList[i + 1]) rows.push([groupsList[i + 1][0], groupsList[i + 1][1]]);
-      // 用占位表示两列布局（这里直接渲染两个段）
-    }
-    // 简化：每行两个组
     return (
       <div className="space-y-1">
         {Array.from({ length: Math.ceil(groupsList.length / 2) }).map((_, i) => {
@@ -88,13 +90,13 @@ export const SkillGroups: React.FC<{
           const right = groupsList[i * 2 + 1];
           return (
             <div key={i} className="flex gap-x-6">
-              <div className="flex-1 flex items-baseline gap-1.5">
-                {left && left[0] !== '技能' && <span className="font-bold" style={{ fontSize: '10pt' }}>{left[0]}:</span>}
-                <span style={style}>{left ? left[1].map(x => x.name).join(separator) : ''}</span>
+              <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
+                {left && left[0] !== '技能' && <span className="font-bold flex-shrink-0" style={labelStyle}>{left[0]}:</span>}
+                <span className="min-w-0 break-words" style={style}>{left ? left[1].map(x => x.name).join(separator) : ''}</span>
               </div>
-              <div className="flex-1 flex items-baseline gap-1.5">
-                {right && right[0] !== '技能' && <span className="font-bold" style={{ fontSize: '10pt' }}>{right[0]}:</span>}
-                <span style={style}>{right ? right[1].map(x => x.name).join(separator) : ''}</span>
+              <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
+                {right && right[0] !== '技能' && <span className="font-bold flex-shrink-0" style={labelStyle}>{right[0]}:</span>}
+                <span className="min-w-0 break-words" style={style}>{right ? right[1].map(x => x.name).join(separator) : ''}</span>
               </div>
             </div>
           );
@@ -109,8 +111,8 @@ export const SkillGroups: React.FC<{
         const isPlain = group === '技能';
         return (
           <div key={group} className="flex items-baseline gap-1.5">
-            {!isPlain && <span className="font-bold" style={{ fontSize: '10pt' }}>{group}:</span>}
-            <span style={style}>{list.map(x => x.name).join(separator)}</span>
+            {!isPlain && <span className="font-bold flex-shrink-0" style={labelStyle}>{group}:</span>}
+            <span className="min-w-0 break-words" style={style}>{list.map(x => x.name).join(separator)}</span>
           </div>
         );
       })}
