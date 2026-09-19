@@ -2,15 +2,16 @@ import { ResumeData } from "@/app/types/resume";
 
 /**
  * 创建一份「空白简历」：个人信息全空（禁止李明），
- * 默认模板 campusClean + 主题 campus（02 §5.1 / §5.4）。
+ * 默认模板 classic + 主题 campus（02 §5.1 / §5.4）。
  * 模块只保留空的基本骨架，由 QuickStart 或用户自行添加。
+ * 注意：这里的数组顺序就是纸面上的模块顺序（模板不得自行排死）。
  */
 export function emptyResumeData(): ResumeData {
   return {
     id: "",
     title: "未命名简历",
     lastModified: Date.now(),
-    template: 'campusClean',
+    template: 'classic',
     settings: {
       themeColor: 'campus',
       fontFamily: 'sans',

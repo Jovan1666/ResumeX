@@ -3,184 +3,246 @@ import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 
+/**
+ * 年月选择器（简历里所有日期都用 YYYY.MM）
+ *
+ * 两条输入路径（对应审计 D 组）：
+ * 1. 左侧输入框直接敲键盘入「2026.12 / 2026-12 / 2026年12月 / 2026 / 至今」，回车或失焦即解析落盘
+ * 2. 右侧真 `<button>`（aria-haspopup / aria-expanded）打开日历，键盘可达：Esc 关闭并把焦点还给触发按钮
+ *
+ * 年份范围放开到「当前年 + 6」：应届生要写 2027.06 毕业、合同到期、预计交付等未来时间，
+ * 不能把当年之后的月份禁掉。
+ */
+
 interface DatePickerProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   allowPresent?: boolean;
   className?: string;
+  id?: string;
+  /** 屏幕阅读器标签（如「开始时间」） */
+  ariaLabel?: string;
 }
 
-const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 const currentYear = new Date().getFullYear();
-// 年份范围：1980 至 当前年 + 1（规格 4.4）
 const YEAR_MIN = 1980;
-const YEAR_MAX = currentYear + 1;
+const YEAR_MAX = currentYear + 6;
 const years = Array.from({ length: YEAR_MAX - YEAR_MIN + 1 }, (_, i) => YEAR_MAX - i);
+
+const PRESENT = '至今';
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * 把用户输入解析为 `YYYY.MM`（或 `至今`）；无法解析返回 null。
+ * 支持：2026.12 / 2026-12 / 2026/12 / 2026年12月 / 2026 12 / 2026 / 至今 / 现在
+ */
+export function parseYearMonth(raw: string, allowPresent: boolean): string | null {
+  const text = raw.trim();
+  if (!text) return '';
+  if (allowPresent && (text === PRESENT || text === '现在' || text.toLowerCase() === 'present')) return PRESENT;
+
+  const match = text.match(/^(\d{4})(?:\s*[.\-/年]\s*(\d{1,2})\s*月?)?$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  if (year < YEAR_MIN || year > YEAR_MAX) return null;
+  if (!match[2]) return `${year}`;
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  return `${year}.${pad2(month)}`;
+}
 
 export const DatePicker: React.FC<DatePickerProps> = ({
   value,
   onChange,
   placeholder = '选择日期',
   allowPresent = true,
-  className
+  className,
+  id,
+  ariaLabel,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  // isPresent 派生自 value === '至今'（P1-5 修复：value 变成日期后自动为 false）
-  const isPresent = value === '至今';
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, openUpward: false });
+  const [draft, setDraft] = useState(value);
+  const [invalid, setInvalid] = useState(false);
+  const [viewYear, setViewYear] = useState(() => {
+    const y = Number(value.match(/^(\d{4})/)?.[1]);
+    return Number.isFinite(y) && y >= YEAR_MIN && y <= YEAR_MAX ? y : currentYear;
+  });
+  const [pos, setPos] = useState({ top: 0, left: 0 });
 
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const isPresent = value === PRESENT;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const focusedRef = useRef(false);
+  /**
+   * 最新敲入的文本：onChange 里直接写，commit 一律读它。
+   * 只用 draft state 的话，「输入后同一任务里立刻失焦」（脚本注入、部分输入法的 blur）
+   * 会读到尚未重渲染的旧 draft，把刚敲的年月丢掉。
+   */
+  const draftRef = useRef(value);
 
-  // 解析当前值：同步选中年份（不直接改 isPresent 状态）
+  // 外部值变化（撤销 / 切换简历 / 日历选中）时回填输入框；用户正在输入时不打断
   useEffect(() => {
-    if (value && value !== '至今') {
-      const match = value.match(/(\d{4})\.(\d{1,2})/);
-      if (match) {
-        const y = parseInt(match[1]);
-        setSelectedYear(Math.min(YEAR_MAX, Math.max(YEAR_MIN, y)));
-      }
+    if (!focusedRef.current) {
+      draftRef.current = value;
+      setDraft(value);
+      setInvalid(false);
     }
   }, [value]);
 
-  // 计算下拉面板位置
+  // 打开时同步视图年份
+  useEffect(() => {
+    if (!isOpen) return;
+    const y = Number((value || String(new Date().getFullYear())).match(/^(\d{4})/)?.[1]);
+    if (Number.isFinite(y) && y >= YEAR_MIN && y <= YEAR_MAX) setViewYear(y);
+  }, [isOpen, value]);
+
   const updatePosition = useCallback(() => {
-    if (!triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const dropdownHeight = allowPresent ? 310 : 260;
-    const dropdownWidth = 256;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUpward = spaceBelow < dropdownHeight + 8 && rect.top > dropdownHeight + 8;
-
+    const anchor = wrapRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const height = allowPresent ? 320 : 268;
+    const width = 256;
+    const openUpward = window.innerHeight - rect.bottom < height + 8 && rect.top > height + 8;
     let left = rect.left;
-    // 防止右侧溢出屏幕
-    if (left + dropdownWidth > window.innerWidth - 8) {
-      left = window.innerWidth - dropdownWidth - 8;
-    }
-    // 防止左侧溢出
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
     if (left < 8) left = 8;
-
-    setDropdownPos({
-      top: openUpward ? rect.top - dropdownHeight - 4 : rect.bottom + 4,
-      left,
-      openUpward,
-    });
+    setPos({ top: openUpward ? rect.top - height - 4 : rect.bottom + 4, left });
   }, [allowPresent]);
 
-  // 打开/关闭
-  const handleToggle = () => {
-    if (!isOpen) {
-      updatePosition();
-    }
-    setIsOpen(!isOpen);
-  };
+  const open = useCallback(() => {
+    updatePosition();
+    setIsOpen(true);
+  }, [updatePosition]);
+
+  const close = useCallback((refocus: boolean) => {
+    setIsOpen(false);
+    if (refocus) triggerRef.current?.focus();
+  }, []);
 
   // 点击外部关闭
   useEffect(() => {
     if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        triggerRef.current && !triggerRef.current.contains(target) &&
-        (!dropdownRef.current || !dropdownRef.current.contains(target))
-      ) {
-        setIsOpen(false);
-      }
+    const onMouseDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || dropdownRef.current?.contains(t)) return;
+      setIsOpen(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
-
-  // 滚动时关闭（避免位置错位）
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleScroll = (e: Event) => {
-      // 忽略下拉面板自身的滚动
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close(true); }
+    };
+    // 滚动时关闭，避免浮层与触发器错位（浮层自身滚动除外）
+    const onScroll = (e: Event) => {
       if (dropdownRef.current?.contains(e.target as Node)) return;
       setIsOpen(false);
     };
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
-  }, [isOpen]);
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [isOpen, close]);
 
-  const handleSelectMonth = (monthIndex: number) => {
-    const month = String(monthIndex + 1).padStart(2, '0');
-    onChange(`${selectedYear}.${month}`);
+  /**
+   * 提交输入框内容：解析成功写 store；解析失败**保留用户敲的文本**并标红提示，
+   * 绝不静默把输入吞回旧值（旧写法打完一个错格式直接蒸发）。
+   */
+  const commitDraft = useCallback(() => {
+    const parsed = parseYearMonth(draftRef.current, allowPresent);
+    if (parsed === null) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    draftRef.current = parsed;
+    setDraft(parsed);
+    if (parsed !== value) onChange(parsed);
+  }, [value, allowPresent, onChange]);
+
+  const handlePickMonth = (monthIndex: number) => {
+    onChange(`${viewYear}.${pad2(monthIndex + 1)}`);
     setIsOpen(false);
   };
 
-  const handleSelectPresent = () => {
-    onChange('至今');
+  const handlePickPresent = () => {
+    onChange(PRESENT);
     setIsOpen(false);
   };
 
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange('');
+  const handleClear = () => {
+    draftRef.current = '';
+    setDraft('');
+    setInvalid(false);
+    if (value) onChange('');
+    inputRef.current?.focus();
   };
 
-  const displayValue = isPresent ? '至今' : value;
+  const displayValue = isPresent ? PRESENT : value;
+  const selectedMonthIndex = (() => {
+    const m = displayValue.match(/^\d{4}\.(\d{1,2})/);
+    return m ? Number(m[1]) - 1 : -1;
+  })();
 
-  // 下拉面板内容
-  const dropdownContent = (
+  const dropdown = (
     <div
       ref={dropdownRef}
+      role="dialog"
+      aria-label="选择年月"
       className="fixed w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] overflow-hidden"
-      style={{
-        top: dropdownPos.top,
-        left: dropdownPos.left,
-      }}
+      style={{ top: pos.top, left: pos.left }}
     >
-      {/* 年份选择：左箭头 = 更早年份（规格 1.5） */}
+      {/* 年份导航：左箭头 = 更早年份 */}
       <div className="flex items-center justify-between p-2 bg-gray-50 border-b border-gray-200">
         <button
-          onClick={() => setSelectedYear(Math.max(YEAR_MIN, selectedYear - 1))}
-          disabled={selectedYear <= YEAR_MIN}
+          type="button"
+          onClick={() => setViewYear((y) => Math.max(YEAR_MIN, y - 1))}
+          disabled={viewYear <= YEAR_MIN}
           className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-          title="更早年份"
+          aria-label="上一年"
         >
           <ChevronLeft size={16} />
         </button>
         <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+          value={viewYear}
+          onChange={(e) => setViewYear(Number(e.target.value))}
           className="font-medium text-center bg-transparent border-none focus:ring-0 cursor-pointer"
+          aria-label="年份"
         >
           {years.map((year) => (
             <option key={year} value={year}>{year}年</option>
           ))}
         </select>
         <button
-          onClick={() => setSelectedYear(Math.min(YEAR_MAX, selectedYear + 1))}
-          disabled={selectedYear >= YEAR_MAX}
+          type="button"
+          onClick={() => setViewYear((y) => Math.min(YEAR_MAX, y + 1))}
+          disabled={viewYear >= YEAR_MAX}
           className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-          title="更晚年份"
+          aria-label="下一年"
         >
           <ChevronRight size={16} />
         </button>
       </div>
 
-      {/* 月份网格 */}
+      {/* 月份网格：未来年月同样可选（毕业 / 合同到期等场景） */}
       <div className="p-2 grid grid-cols-4 gap-1">
-        {months.map((month, index) => {
-          const monthValue = `${selectedYear}.${String(index + 1).padStart(2, '0')}`;
-          const isSelected = value === monthValue;
-          const isFuture = selectedYear === currentYear && index > new Date().getMonth();
-          
+        {monthNames.map((month, index) => {
+          const isSelected = displayValue === `${viewYear}.${pad2(index + 1)}`;
           return (
             <button
               key={month}
-              onClick={() => !isFuture && handleSelectMonth(index)}
-              disabled={isFuture}
+              type="button"
+              onClick={() => handlePickMonth(index)}
+              autoFocus={isSelected || (selectedMonthIndex === -1 && index === 0)}
               className={cn(
                 "py-2 px-1 text-sm rounded transition-colors",
-                isSelected
-                  ? "bg-blue-600 text-white"
-                  : isFuture
-                    ? "text-gray-300 cursor-not-allowed"
-                    : "hover:bg-gray-100 text-gray-700"
+                isSelected ? "bg-blue-600 text-white font-medium" : "hover:bg-gray-100 text-gray-700"
               )}
             >
               {month}
@@ -189,20 +251,25 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         })}
       </div>
 
-      {/* 至今选项 */}
       {allowPresent && (
-        <div className="p-2 border-t border-gray-200">
+        <div className="p-2 border-t border-gray-200 flex items-center gap-2">
           <button
-            onClick={handleSelectPresent}
+            type="button"
+            onClick={handlePickPresent}
             className={cn(
-              "w-full py-2 px-3 text-sm rounded-lg transition-colors flex items-center justify-center gap-2",
-              isPresent
-                ? "bg-green-100 text-green-700 font-medium"
-                : "hover:bg-gray-100 text-gray-600"
+              "flex-1 py-2 px-3 text-sm rounded-lg transition-colors flex items-center justify-center gap-2",
+              isPresent ? "bg-green-100 text-green-700 font-medium" : "hover:bg-gray-100 text-gray-600"
             )}
           >
             {isPresent && <span className="w-2 h-2 bg-green-500 rounded-full" />}
             至今
+          </button>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="py-2 px-3 text-sm rounded-lg text-gray-500 hover:bg-gray-100 border border-gray-200"
+          >
+            清空
           </button>
         </div>
       )}
@@ -210,31 +277,69 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   );
 
   return (
-    <div ref={triggerRef} className={cn("relative", className)}>
-      {/* 触发按钮 */}
-      <div
-        onClick={handleToggle}
+    <div ref={wrapRef} className={cn("relative flex items-center min-w-0", className)}>
+      <input
+        ref={inputRef}
+        id={id}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        aria-label={ariaLabel || placeholder}
+        aria-invalid={invalid || undefined}
+        title={invalid ? '格式：2026.12（年.月）' + (allowPresent ? ' 或「至今」' : '') : undefined}
+        placeholder={placeholder}
+        value={draft}
+        onChange={(e) => {
+          draftRef.current = e.target.value;
+          setDraft(e.target.value);
+          const parsed = parseYearMonth(e.target.value, allowPresent);
+          setInvalid(e.target.value.trim() !== '' && parsed === null);
+        }}
+        onFocus={() => { focusedRef.current = true; }}
+        onBlur={() => { focusedRef.current = false; commitDraft(); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commitDraft(); inputRef.current?.blur(); }
+          if (e.key === 'Escape') { e.preventDefault(); draftRef.current = value; setDraft(value); setInvalid(false); setIsOpen(false); }
+          if (e.key === 'ArrowDown') { e.preventDefault(); if (isOpen) close(true); else open(); }
+        }}
         className={cn(
-          "flex items-center gap-2 px-3 py-2 bg-white border rounded-lg cursor-pointer transition-colors text-sm",
-          isOpen ? "border-blue-500 ring-1 ring-blue-500" : "border-gray-300 hover:border-gray-400"
+          "flex-1 min-w-0 px-2 py-2 bg-white border rounded-l-lg text-sm outline-none transition-colors",
+          invalid
+            ? "border-red-400 focus:border-red-500"
+            : isOpen
+              ? "border-blue-500"
+              : "border-gray-300 focus:border-blue-500",
+          !displayValue && "text-gray-400 placeholder:text-gray-400"
+        )}
+      />
+      {displayValue && (
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={handleClear}
+          aria-label="清空日期"
+          className="absolute right-9 p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+        >
+          <X size={13} />
+        </button>
+      )}
+      <button
+        type="button"
+        ref={triggerRef}
+        onClick={() => (isOpen ? close(false) : open())}
+        onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); open(); } }}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-label={`${placeholder}：打开日历选择`}
+        className={cn(
+          "flex-shrink-0 px-2 py-2 bg-white border border-l-0 rounded-r-lg transition-colors",
+          isOpen ? "border-blue-500 text-blue-600" : "border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
         )}
       >
-        <Calendar size={14} className="text-gray-400" />
-        <span className={cn("flex-1 truncate", displayValue ? "text-gray-900" : "text-gray-400")}>
-          {displayValue || placeholder}
-        </span>
-        {displayValue && (
-          <button
-            onClick={handleClear}
-            className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
+        <Calendar size={14} />
+      </button>
 
-      {/* 通过 Portal 渲染到 body，避免被父容器 overflow 裁剪 */}
-      {isOpen && createPortal(dropdownContent, document.body)}
+      {isOpen && createPortal(dropdown, document.body)}
     </div>
   );
 };

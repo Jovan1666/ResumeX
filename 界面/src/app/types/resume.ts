@@ -1,21 +1,31 @@
 import { GlobalSettings } from './theme';
 
-// 14 套模板（02 §5.2 原有 8 套 + 09 新增 6 套辨识度骨架）。旧 35 套 id 不再作为 TemplateId 存在，由 persist migrate 映射。
-export type TemplateId =
-  | 'campusClean'   // 校招通用
-  | 'jobClean'      // 社招通用
-  | 'navyBiz'       // 商务深蓝
-  | 'civilFile'     // 体制公文
-  | 'techPlain'     // 技术简洁
-  | 'atsMono'       // 极简黑白
-  | 'compactSplit'  // 双栏紧凑
-  | 'enSimple'      // 英文简洁
-  | 'bannerCampus'  // 顶部横幅校招（09）
-  | 'navySidebar'   // 深蓝侧栏商务（09）
-  | 'lineFrame'     // 细线框档案（09）
-  | 'greenFresh'    // 浅底标题清新（09）
-  | 'sidebarRight'  // 右栏侧栏（09）
-  | 'twoColumnEqual'; // 等宽双列（09）
+/**
+ * 模板 id 的唯一真相来源。
+ * 新增/删除模板只改这里：ResumeRenderer 的 loader 表、store 的校验与迁移都从这里取。
+ *
+ * 14 套 → 7 套：campusClean/jobClean/navyBiz/techPlain 合并为 classic；
+ * navySidebar/sidebarRight/compactSplit/twoColumnEqual 合并为 sidebar；
+ * bannerCampus → banner；lineFrame/greenFresh 合并为 frame。
+ */
+export const TEMPLATE_IDS = [
+  'classic',    // 简洁通用（单栏，栏目头可切 line/bar/plain）
+  'sidebar',    // 侧栏双栏（左右/宽度/底色可调，50% 即等宽双列）
+  'banner',     // 顶部横幅
+  'frame',      // 线框档案（细线框 or 浅底色块）
+  'atsMono',    // 极简黑白
+  'enSimple',   // 英文简洁
+  'civilFile',  // 体制公文
+] as const;
+
+export type TemplateId = typeof TEMPLATE_IDS[number];
+
+const TEMPLATE_ID_SET: ReadonlySet<string> = new Set(TEMPLATE_IDS);
+
+/** 是否已经是当前受支持的模板 id */
+export function isValidTemplateId(id: unknown): id is TemplateId {
+  return typeof id === 'string' && TEMPLATE_ID_SET.has(id);
+}
 
 export type ModuleType = 'experience' | 'education' | 'projects' | 'campus' | 'honors' | 'skills' | 'custom';
 

@@ -50,6 +50,16 @@ export class ErrorBoundary extends Component<Props, State> {
     });
   };
 
+  /**
+   * 回到简历列表。
+   * ErrorBoundary 在 HashRouter 外层（见 App.tsx），这里不能用 Link/navigate，
+   * 只能用 href="#/" 形式的 hash 跳转；崩溃的组件树不会自动恢复，所以直接重新载入最可靠。
+   */
+  handleGoHome = (): void => {
+    window.location.hash = '/';
+    window.location.reload();
+  };
+
   override render(): ReactNode {
     if (this.state.hasError) {
       // 如果提供了自定义 fallback，使用它
@@ -57,34 +67,40 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      // 默认的错误 UI
+      const isDev = process.env.NODE_ENV === 'development';
+
+      // 默认的错误 UI：只给用户看得懂的中文，堆栈收在「技术细节」里
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-8 h-8 text-red-600" />
             </div>
-            
+
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              哎呀，出错了
+              页面出了点问题
             </h1>
-            
-            <p className="text-gray-600 mb-6">
-              应用遇到了一个意外错误。请尝试刷新页面或返回首页。
+
+            <p className="text-gray-600 mb-2 leading-relaxed">
+              应用遇到了一个意外错误。<strong>你的简历仍然保存在本机，没有丢失。</strong>
+            </p>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              可以先重试；如果反复出错，回到简历列表后建议先「导出备份」再继续编辑。
             </p>
 
-            {/* 错误详情（开发环境显示） */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mb-6 p-4 bg-gray-100 rounded-lg text-left overflow-auto max-h-40">
-                <p className="text-sm font-mono text-red-600 break-all">
-                  {this.state.error.toString()}
+            {/* 技术细节：默认收起，不用英文堆栈糊用户脸 */}
+            {this.state.error && (
+              <details className="mb-6 text-left text-xs text-gray-500">
+                <summary className="cursor-pointer select-none">查看技术细节（反馈问题时请附上）</summary>
+                <p className="mt-2 font-mono text-red-600 break-all whitespace-pre-wrap">
+                  {String(this.state.error.message ?? this.state.error)}
                 </p>
-                {this.state.errorInfo && (
-                  <pre className="text-xs text-gray-500 mt-2 whitespace-pre-wrap">
+                {isDev && this.state.errorInfo && (
+                  <pre className="text-xs text-gray-500 mt-2 whitespace-pre-wrap max-h-40 overflow-auto">
                     {this.state.errorInfo.componentStack}
                   </pre>
                 )}
-              </div>
+              </details>
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -95,13 +111,17 @@ export class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw size={18} />
                 重试
               </button>
-              
+
               <a
                 href="#/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  this.handleGoHome();
+                }}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
               >
                 <Home size={18} />
-                返回首页
+                返回我的简历
               </a>
             </div>
           </div>

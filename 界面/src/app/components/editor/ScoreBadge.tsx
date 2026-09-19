@@ -11,7 +11,8 @@ interface CheckBadgeProps {
 }
 
 export const ScoreBadge: React.FC<CheckBadgeProps> = ({ completed, total, requiredAllPassed, onClick, className }) => {
-  const allDone = completed === total;
+  const pending = Math.max(0, total - completed);
+  const allDone = pending === 0;
 
   return (
     <button
@@ -25,11 +26,13 @@ export const ScoreBadge: React.FC<CheckBadgeProps> = ({ completed, total, requir
             : "bg-white text-orange-600 border border-orange-200",
         className
       )}
-      title="完整性检查"
+      title="查看完整性检查"
+      aria-label={allDone ? '完整性检查：全部通过' : `完整性检查：还有 ${pending} 项待完善`}
     >
       <ClipboardCheck size={16} className={allDone ? 'text-white' : requiredAllPassed ? 'text-green-500' : 'text-orange-500'} />
+      {/* 不显示「17/23」这类没有解释的数字，直接说还差几项、点进去能做什么 */}
       <span className="text-sm font-bold whitespace-nowrap">
-        {completed}/{total}
+        {allDone ? '检查通过' : `待完善 ${pending} 项`}
       </span>
       {!requiredAllPassed && (
         <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />

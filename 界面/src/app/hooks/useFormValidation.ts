@@ -23,20 +23,32 @@ export interface ValidationResult {
 
 // 内置验证规则
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const phonePattern = /^1[3-9]\d{9}$/;
 const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/;
+
+/**
+ * 电话格式。字段标签是「电话」而不是「手机」，所以必须接受座机与港澳台号码，
+ * 否则用户填 010-12345678 或 +852-9876-5432 会永久标红且无从修正。
+ * 仍然拒绝明显非法的号码（如 12 开头的大陆号、位数不足）。
+ */
+const mobilePattern = /^1[3-9]\d{9}$/;          // 大陆手机
+const landlinePattern = /^0\d{2,3}\d{7,8}$/;    // 大陆座机：区号(带 0) + 7~8 位
+const intlPattern = /^\+\d{7,15}$/;             // 显式国际/港澳台：必须带 +
+
+/** 去掉分隔符但保留前导 +（+ 是判断「这是国际号码」的唯一依据） */
+function stripSeparators(value: string): string {
+  return value.replace(/[\s()\-–—．.]/g, '');
+}
 
 /** 手机号清洗：去空格、去连字符、去 +86 前缀（存储可保留原格式，校验用干净值） */
 export function normalizePhone(value: string): string {
-  return value
-    .replace(/\s+/g, '')
-    .replace(/\+?86(?=1\d{10}$)/, '')
-    .replace(/[()\-]/g, '');
+  return stripSeparators(value).replace(/^\+?86(?=1\d{10}$)/, '');
 }
 
-/** 判断值是否为有效手机号（先去空格 +86 再测） */
+/** 是否为有效电话号码（手机 / 座机 / 带 + 的港澳台与国际号） */
 export function isValidPhone(value: string): boolean {
-  return phonePattern.test(normalizePhone(value));
+  const cleaned = normalizePhone(value);
+  if (!cleaned) return false;
+  return mobilePattern.test(cleaned) || landlinePattern.test(cleaned) || intlPattern.test(cleaned);
 }
 
 export function validateField(value: string, rules: ValidationRule, fieldName: string): string | null {
@@ -57,7 +69,7 @@ export function validateField(value: string, rules: ValidationRule, fieldName: s
   }
 
   if (value && rules.phone && !isValidPhone(value)) {
-    return '请输入有效的手机号码';
+    return '请输入有效的电话号码（手机、座机或带 + 的港澳台/国际号码）';
   }
 
   if (value && rules.url && !urlPattern.test(value)) {
